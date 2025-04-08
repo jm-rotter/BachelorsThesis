@@ -1,0 +1,15 @@
+main.tex|265 warning| Package xcolor Warning: Package option `hyperref' is obsolete and ignored
+main.tex|| Package pdfx Warning: Setting all color commands to rgb,
+main.tex|| LaTeX Warning: Label `tab:sample' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-drawing' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-plot' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-listing' multiply defined.
+main.tex|| LaTeX Warning: Label `tab:sample' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-drawing' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-plot' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-listing' multiply defined.
+main.tex|| LaTeX Warning: Label `tab:sample' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-drawing' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-plot' multiply defined.
+main.tex|| LaTeX Warning: Label `fig:sample-listing' multiply defined.
+main.tex|| LaTeX Warning: There were multiply-defined labels.
