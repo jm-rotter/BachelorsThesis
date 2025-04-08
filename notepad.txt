@@ -1,0 +1,52 @@
+
+
+
+
+Coroutine: 
+
+	Functions can pause and resume execution at certain points
+
+	Through the use of functions like yield() and suspend() a program can give
+	the control back to the caller of the function. Threads have their own
+	stack and are managed by the operating system, coroutines share a single
+	thread and use manual context switch mechanisms.
+
+
+	CPU coroutine Context: Need to save the Stack Pointer, Program Counter and Register
+	Context is stored in a stack frame
+
+	Make context sets up the stack and the context for such a context switch
+
+	Within the stack, the function's local variables, return address and other execution states will be stored during execution. 
+
+
+	Flow of coroutine: 
+	 	-Start: Stack and Context are prepared
+			(MakeContext)
+		-Yielding: 
+			When a coroutine is running, it may decide to yield execution, either 
+			voluntarily or becuase it has been preempted by another coroutine. During a 
+			yield the state of the coroutine is saved.
+
+		-Resume: Saved context is restored 
+
+
+	Coroutine Scheduler
+
+	Resume method to resume exec of coroutine in ready state
+	stop allows to stop coroutines exec
+
+
+	context pool is a memory pool for routinecontext objects. The routinecontext
+	is where the actual executoin state of the coroutine is stored
+
+	Routinestate object (FINISHED READY RUNNING)
+
+
+	SWAP Context
+
+
+
+LD Preload Cuda Api Interception: 
+
+
