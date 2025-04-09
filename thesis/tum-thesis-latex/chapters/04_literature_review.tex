@@ -13,7 +13,7 @@ Specifically, large, monolithic kernels could be rewritten into smaller tasks us
 This capability, important for tasks with downtimes, reduced the latency associated with waiting for an entire batch of rendering computation to complete and maximized the utilization of the \ac{GPU}'s parallel processing capabilities. 
 
 
-In this paper, a flexible \ac{DSL} was presented, which allowed the writing in a mega-kernel fashion with \texttt{$suspend} statements to define suspention marks, to define a coroutine.
+In this paper, a flexible \ac{DSL} was presented, which allowed the writing in a mega-kernel fashion with \$suspend statements to define suspention marks, to define a coroutine.
 These points, allow the creation of different discrete segments that can be suspended and resumed as needed. 
 The \ac{DSL} has support for a multitude of languages, specifically C\# and CUDA. 
 With minimal changes to the original code, the new DSL can be included, which becomes dynamicaly recorded and translated to an intermediate representation. 
@@ -22,4 +22,3 @@ Important here, is that the scheduler can be chosen or rewritten, which will be 
 Ultimately, through the design of an easy-to-use and easily accessible library, this work can be implemented into autonomous driving systems. 
 
 
-\section{a}
