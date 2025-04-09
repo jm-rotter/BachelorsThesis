@@ -7,7 +7,7 @@
 
 \section{GPU Coroutines for Flexible Splitting and Scheduling of Rendering Tasks}
 
-Previous work, on which this thesis is based, offers a new method in rendering task management to demonstrate a flexible, fine-grained scheduling mechanism on \acsp{GPU}. 
+Previous work, on which this thesis is based, offers a new method in rendering task management to demonstrate a flexible, fine-grained scheduling mechanism on \acsp{GPU} \cite{Zheng2022LuisaRender}. 
 Previously discussed in the background and introduction, this paper focuses on splitting tasks into discrete segments that can be suspended and resumed as needed on \acsp{GPU}. 
 Specifically, large, monolithic kernels could be rewritten into smaller tasks using coroutines. 
 This capability, important for tasks with downtimes, reduced the latency associated with waiting for an entire batch of rendering computation to complete and maximized the utilization of the \ac{GPU}'s parallel processing capabilities. 

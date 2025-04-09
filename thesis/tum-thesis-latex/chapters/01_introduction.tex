@@ -17,17 +17,17 @@ Here, each data element is processed by its own thread, allowing the same instru
 
 
 Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
-In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions. 
+In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions \cite{JEON2021167}.
 Deep learning, inspired by the structure of the human brain, is composed of layers of numerous interconnected, identical nodes called neural networks.  
 Neural network models rely on mathematical operations between different neighboring layers to perform inference, essentially the prediction making or recognition process.
 The layers are represented as matrices, which then get multiplied and convoluted with one another and are used by specialized functions, called activation functions, to introduce non-linearity. 
 With very large neural networks with thousands or millions of nodes, the inference computation is repetitive and slow. 
 The capability to execute these repeptitive workloads concurrently across different dataset makes \acsp{GPU} fundamental to performance in tasks using complex neural networks.  
 Furthermore, \acsp{GPU} are necessary to process the data rate produced by high-bandwidth, high-frequency sensors used in autonomous driving. 
-The parallelism in \acs{GPU}s makes them the ideal platform over CPUs for deep learning and data processing tasks, tasks fundamental for autonomous driving systems. 
+The parallelism in \acs{GPU}s makes them the ideal platform over CPUs for deep learning and data processing tasks, tasks fundamental for autonomous driving systems.
 
 \subsection{Autonomous Driving as a Real Time System}
-Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior. 
+Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
 They use a concept of deadlines, which are subdivided into soft and hard-deadlines. 
 Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
 For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
@@ -66,7 +66,7 @@ Capturing the continuation of a function allows the resumption of the program to
 
 \subsection{Autonomous Vehicles}
 Autonomous driving systems, such as self-driving cars, are subdivided into several modules, perception, localization, mapping, planning and control, which all rely on massive data processing and machine learning, to help the system to understand its enviornment, plan its trajectory and drive without any human help. 
-Perception gathers and interprets vast amounts of data from numerous sensors, such as \ac{LiDAR} sensors, cameras, radar, and ultrasonic sensors, to identify and classify surrounding objects.
+Perception gathers and interprets vast amounts of data from numerous sensors, such as \ac{LiDAR} sensors, cameras, radar, and ultrasonic sensors, to identify and classify surrounding objects \cite{apollo}.
 After perception, localization and mapping use a \ac{SLAM} algorithm to build maps and determine the vehicle's precise location within its enviornment and the generated map. 
 Using the foundation set by localization and mapping, path planning determines the vehicles trajectory from its current location to a target destination, while respecting traffic laws and avoiding obstacles. 
 Lastly, control actively follows the trajectory and sets the speed, steering and braking required for the planned path.
@@ -85,7 +85,7 @@ To meet these requirements, these computations are scheduled on to a \ac{GPU}, w
 \subsection{NVIDIA Tesla V100 Architecture}
 
 For the purpose of this thesis, the NVIDIA Tesla V100 accelerator, which uses the Volta GV100 \ac{GPU} architecture, was selected due to its availability and high-performance computing capabilities.
-At the core of its execution model is the warp, a group of 32 threads executing in \ac{SIMT} fashion.
+At the core of its execution model is the warp, a group of 32 threads executing in \ac{SIMT} fashion \cite{nvidia2017tesla}.
 Each warp is scheduled and dispatched within one of the 4 processing partitions of a \ac{SM}. 
 The warp scheduler and warp dispatcher each handle 32 threads per clock cycle. 
 Within each \ac{SM} partition, there are Tensor Cores for deep learning, 64 bit-\ac{FP} cores, \ac{LD/ST} units, a register file, and \acs{SFU}s for mathematical functions such as  sine and square root. 
