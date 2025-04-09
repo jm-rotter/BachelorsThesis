@@ -9,7 +9,7 @@ The approach begins by integrating the LuisaCompute-coroutine framework to manag
 This integration aims to adapt the coroutine scheduler—originally designed for graphics rendering tasks—to meet the real-time and safety-critical demands of autonomous driving. 
 By doing so, the system can address the limitations of Apollo’s existing batch-based scheduling, facilitating more dynamic task management and offering significant improvements in responsiveness and predictability.
 
-The implementation will start with a pilot integration into a single, self-contained module within Apollo. 
-This initial step serves as a proof-of-concept, focusing on adapting the LuisaCompute-coroutine scheduling to manage GPU threads effectively for one critical subsystem. 
+The implementation will start with a test integration into a single, self-contained module within Apollo. 
+This initial step serves as a trial, focusing on adapting the LuisaCompute-coroutine scheduling to manage GPU threads effectively for one critical subsystem. 
 Once the viability and benefits of this approach are validated—through detailed performance benchmarks and safety evaluations—the solution will be iteratively expanded to encompass additional modules across the platform. 
 This staged rollout not only minimizes disruption to Apollo’s existing architecture but also provides a controlled environment to fine-tune the integration, setting the stage for broader adoption of coroutine-based scheduling across the entire system.
