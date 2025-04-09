@@ -49,21 +49,18 @@ To adapt \acsp{GPU} to the requirements of real time systems, while maintaining 
 
 Asynchronous programming is a method of programming a system to handle tasks concurrently instead of sequentially. 
 Typically used in conjunction with tasks that delay or have high wait-times, such as I/O heavy jobs, asynchronous programming reduces overall execution time by more efficiently using processing ressources. 
-For example, while waiting for I/O heavy input from sensor input, asynchronous code lets other tasks execute in the meantime, before returning when the data arrives.  
-For real-time systems asynchronous programming furthers the use of intermittant execution to enforce determinism. 
+For example, while waiting for I/O heavy input like sensor I/O, asynchronous code lets other tasks execute in the meantime, before returning when the data arrives.  
+For real-time systems, asynchronous programming additionally uses the intermittant execution model to enforce determinism. 
 By allowing the \acsp{GPU} to switch between concurrent tasks, hard deadlines can be immediately enforced without delay. 
 
 
-
 Coroutines, an implementation of asynchronous programming, uses suspendable functions to halt execution. 
-Suspendable functions are implemented by capturing the current context, know as the continuation, of a function and process and saving it. 
-After being saved, a new process can take over execution, without interrupting the state of the previous process. 
-Once the intermittant process or higher priority process has finished execution, the first task can continue executing by restoring the process context. 
-Capturing the continuation of a function allows the resumption of the program to be strategically deferred \cite{Zheng2022LuisaRender}. 
+Suspendable functions are implemented by capturing the current context, know as the continuation, of the currently running thread and save the data to be run later \cite{Zheng2022LuisaRender}. 
+After being saved, a new process can take over execution, without interrupting or overwritting the state of the previous process. 
+Once the intermittant process or higher priority process has finished execution, the original task can continue executing by restoring the process context, which was previously saved. 
+Capturing the continuation of a function allows the resumption of the program to be strategically deferred. 
 
-coroutines
-Each tasksk
-Here, the scheduled tasks are independent of the control flow, meaning the execution order of the subtasks
+%Here, the scheduled tasks are independent of the control flow, meaning the execution order of the subtasks
 
 
 
@@ -85,22 +82,6 @@ To meet these requirements, these computations are scheduled on to a \ac{GPU}, w
 
 
 
-
-\subsection{Asynchronous Programming}
-
-
-
-
-
-\subsection{Real Time Systems}
-
-\subsection{Autonomous Driving Systems}
-
-
-
-\subsection{\acs{GPU}s}
-
-
 \subsection{NVIDIA Tesla V100 Architecture}
 
 For the purpose of this thesis, the NVIDIA Tesla V100 accelerator, which uses the Volta GV100 \ac{GPU} architecture, was selected due to its availability and high-performance computing capabilities.
@@ -115,12 +96,12 @@ At a higher level, two \acs{SM}s are grouped to form a \ac{TPC}.
 The Tesla V100 GPU consists of six \acs{GPC}s, each containing seven \acs{TPC}s, resulting in a total of 84 \acs{SM}s across the chip. 
 This hierarchical organization, from warps to \acs{SM}s, \acs{TPC}s, and \acs{GPC}s, enables the Tesla V100 to efficiently handle massively parallel workloads, making it well-suited for high-performance computing and deel learning applications. 
 
-\section{Motivation}
-In autonomous driving and other real time system tasks, GPUs are essential for data processing and machine learning; however,  existing GPU scheduling techniques fail to meet the strict timing requirements of real-time applications.
-GPU tasks are traditional queued and scheduled based on availabilty to optimize for high throughput applications like graphics rendering and offline machine learning training.
-These tasks run to completion before switching tasks, meaning multiple tasks, such as the different modules in autonomous driving cannot efficiently share resources. 
-Depending on the current workload for the GPU, execution times and latency can vary. 
-These limitations make existing GPU scheduling mechanisms unsuitable for real-time applications like autonomous driving, where deadlines need to be met to ensure the safety of the system and passengers. 
+ %\section{Motivation}
+ %In autonomous driving and other real time system tasks, GPUs are essential for data processing and machine learning; however,  existing GPU scheduling techniques fail to meet the strict timing requirements of real-time applications.
+ %GPU tasks are traditional queued and scheduled based on availabilty to optimize for high throughput applications like graphics rendering and offline machine learning training.
+ %These tasks run to completion before switching tasks, meaning multiple tasks, such as the different modules in autonomous driving cannot efficiently share resources. 
+ %Depending on the current workload for the GPU, execution times and latency can vary. 
+ %These limitations make existing GPU scheduling mechanisms unsuitable for real-time applications like autonomous driving, where deadlines need to be met to ensure the safety of the system and passengers. 
 
 %Citation test~\parencite{latex}.
 

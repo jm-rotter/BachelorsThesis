@@ -3,7 +3,23 @@
 
 \chapter{Literature Review}\label{chapter:Literature Review}
 
-\section{GPU Partitioning}
+%\section{GPU Partitioning}
+
+\section{GPU Coroutines for Flexible Splitting and Scheduling of Rendering Tasks}
+
+Previous work, on which this thesis is based, offers a new method in rendering task management to demonstrate a flexible, fine-grained scheduling mechanism on \acsp{GPU}. 
+Previously discussed in the background and introduction, this paper focuses on splitting tasks into discrete segments that can be suspended and resumed as needed on \acsp{GPU}. 
+Specifically, large, monolithic kernels could be rewritten into smaller tasks using coroutines. 
+This capability, important for tasks with downtimes, reduced the latency associated with waiting for an entire batch of rendering computation to complete and maximized the utilization of the \ac{GPU}'s parallel processing capabilities. 
+
+
+In this paper, a flexible \ac{DSL} was presented, which allowed the writing in a mega-kernel fashion with \texttt{$suspend} statements to define suspention marks, to define a coroutine.
+These points, allow the creation of different discrete segments that can be suspended and resumed as needed. 
+The \ac{DSL} has support for a multitude of languages, specifically C\# and CUDA. 
+With minimal changes to the original code, the new DSL can be included, which becomes dynamicaly recorded and translated to an intermediate representation. 
+From the intermediate representation, after a set of comiler transformation and analysis used to extract the state frame, a scheduler can define the execution and manage the state frames. 
+Important here, is that the scheduler can be chosen or rewritten, which will be used for Apollo. 
+Ultimately, through the design of an easy-to-use and easily accessible library, this work can be implemented into autonomous driving systems. 
 
 
 \section{a}

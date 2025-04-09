@@ -7,14 +7,12 @@
 
 
 
-The proposed solution will use a library with an API to implement coroutines on persistent threads.
-When a new task, from the CPU, is scheduled, the task must actively notify the GPU that a new task exists and the GPU needs to halt. 
-This signaling will happen, by using GPU flags that can be set and evaluated or potentially through a maximum latency approach.
-The maximum latency approach, will maintain a maximum latency between when a task is scheduled onto the GPU and when the task needs to start, by periodically checking for new tasks. 
-Next a mechanism to saving the thread state and resetting the thread state will be implemented. 
-The thread state consists of the \ac{PC}, thread register values, and memory state, which consists of thread private memory, warp and block level memory, and the persistant state. 
-These values must be stored in the global memory and then resused to restore execution. 
-Furthermore, to prevent deadlocks a synchronisation mechanism needs to be developed, to disallow deadlocks. 
-If a GPU kernel uses a syncThreads() call and a coroutine attempts to yield it at that point, a deadlock will occur. 
+The proposed solution leverages LuisaCompute-coroutines to introduce a coroutine-based scheduling mechanism into Apollo. 
+The approach begins by integrating the LuisaCompute-coroutine framework to manage GPU threads more flexibly, allowing rendering and real-time computation tasks to be suspended, resumed, and interleaved in a deterministic manner. 
+This integration aims to adapt the coroutine scheduler—originally designed for graphics rendering tasks—to meet the real-time and safety-critical demands of autonomous driving. 
+By doing so, the system can address the limitations of Apollo’s existing batch-based scheduling, facilitating more dynamic task management and offering significant improvements in responsiveness and predictability.
 
-
+The implementation will start with a pilot integration into a single, self-contained module within Apollo. 
+This initial step serves as a proof-of-concept, focusing on adapting the LuisaCompute-coroutine scheduling to manage GPU threads effectively for one critical subsystem. 
+Once the viability and benefits of this approach are validated—through detailed performance benchmarks and safety evaluations—the solution will be iteratively expanded to encompass additional modules across the platform. 
+This staged rollout not only minimizes disruption to Apollo’s existing architecture but also provides a controlled environment to fine-tune the integration, setting the stage for broader adoption of coroutine-based scheduling across the entire system.
