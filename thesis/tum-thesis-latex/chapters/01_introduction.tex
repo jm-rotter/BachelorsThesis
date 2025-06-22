@@ -2,21 +2,26 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Introduction}\label{chapter:introduction}
-Autonomous driving presents a formidable challenge in computing, requiring complex high-performance workloads that heavily rely on \acs{GPU}s, yet traditional scheduling techniques fail to deliver the necessary predictability and reliability demanded by real-time systems.
-\ac{GPU} hardware is optimized for maximizing throughput, a focus that compromises low-latency performance critical for real-time applications. 
-Similarily, traditional \ac{GPU} scheduling methods do not consider the strict deadlines essential for real time systems, particularily under conditions of \ac{GPU} contention, where multiple tasks compete for limited computational resources. 
-This thesis will implemented an approach to \ac{GPU} scheduling using coroutines on persistant threads to reduce latency variability and address contention issues, ultimately delivering the predictability and reliability necessary for real-time autonomous driving applications. 
+Autonomous driving presents a formidable challenge in computing, requiring computationaly complex workloads that heavily rely on \acsp{GPU} for efficient execution, yet traditional kernel scheduling techniques fail to deliver the necessary real time execution predictability, latency, and reliability.
+Unlike \acs{CPU} tasks, the CUDA API, used to program NVIDIA \acsp{GPU}, does not provide a mechanism to interrupt executing kernels, limiting real time scheduling and resource management techniques \cite{taskparallelism}.
+The lack of an interrupt mechanism, can lead to dangerous \acs{GPU} resource contention, where high priority critical tasks are delayed by low priority tasks. 
+Instead, for real time systems, \acs{GPU} scheduling needs to include a mechanism to either suspend kernel execution or explicitly control compute and memory resources. 
+
+This thesis will examine and implemented an approach to \ac{GPU} scheduling using coroutines on persistant threads to reduce latency variability and adress contention issues, ultimately delivering the predictability and reliability necessary for real-time autonomous driving applications. 
 
 \subsection{Necessesity of \acsp{GPU} in Autonomous Driving}
-Recently, \acsp{GPU} have revolutionized data processing with their ability to handle massive amounts of data and execute highly-parallelized computations.
-Previous data processing systems, which used traditional CPUs, by contrast, relied on a \ac{MIMD} architecture that excels at handling complex control logic at high frequencies by executing different instructions on seperate data streams concurrently. 
-However, for  tasks that require the repeated execution of singular instructions such as large-scale data processing workloads, CPUs are burdened by the overhead of the complex control logic, where a simpler, more parallel design would be more effective.
-\acs{GPU}s, created to overcome this limitation, use a \ac{SIMT} architecture with thousands of simpler, slower threads executing simultaneously. 
+Recently, \acsp{GPU} have revolutionized data processing and machine learning training and inference with their ability to handle massive amounts of data and execute simple, but highly-parallelized computations.
+Data processing systems, based on traditional CPUs, rely on a \ac{MIMD} architecture that excels at handling complex control logic at high frequencies by executing different instructions on seperate data streams concurrently. 
+However, for  tasks that require the repeated execution of singular instructions such as large-scale data processing workloads, \acsp{CPU} are burdened by the overhead of the complex control logic, where a simpler, more parallel design would be more effective.
+\acs{GPU}s, created to overcome this limitation, use a \ac{SIMT} architecture with thousands of simpler, but slower threads executing simultaneously. 
+% TODO
+For example, the current architecture generally supports as many as 2048 threads in a single block, which can run on a single \ac{SM}, scaling the number of concurrent threads by the number of \acsp{SM}, by the number of \acsp{SM}, 80 on the newer models. 
+% TODO
 The parallelism provided by the \ac{SIMT} model allows a far higher throughput that outperforms \acsp{CPU}. 
 Here, each data element is processed by its own thread, allowing the same instruction to be executed simultaneously across numerous data streams.
 
-
-Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
+% TODO
+Real time systems, which rely extensively on machine learning tasks and data processing tasks, Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
 In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions \cite{JEON2021167}.
 Deep learning, inspired by the structure of the human brain, is composed of layers of numerous interconnected, identical nodes called neural networks.  
 Neural network models rely on mathematical operations between different neighboring layers to perform inference, essentially the prediction making or recognition process.
