@@ -2,15 +2,121 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Introduction}\label{chapter:introduction}
-Autonomous driving presents a formidable challenge in computing, requiring computationaly complex workloads that heavily rely on \acsp{GPU} for efficient execution, yet traditional kernel scheduling techniques fail to deliver the necessary real time execution predictability, latency, and reliability.
-Unlike \acs{CPU} tasks, the CUDA API, used to program NVIDIA \acsp{GPU}, does not provide a mechanism to interrupt executing kernels, limiting real time scheduling and resource management techniques \cite{taskparallelism}.
-The lack of an interrupt mechanism, can lead to dangerous \acs{GPU} resource contention, where high priority critical tasks are delayed by low priority tasks. 
-Instead, for real time systems, \acs{GPU} scheduling needs to include a mechanism to either suspend kernel execution or explicitly control compute and memory resources. 
+Autonomous driving systems place stringent demands on computational performance and predictability, yet \acsp{GPU}, needed to process sensor data and run machine learning tasks, can not natively support time critical demands. 
+The current CUDA \acs{GPU} hardware scheduler, functioning as a black box, maximimizes throughput rather than deterministic execution, leading to unpredictable latency from resource contention, which poses a serious safety hazard.
+The proprietary nature of the hardware scheduler makes it difficult to enforce timing guarantees, prioritize critical tasks, and suspend resident kernels.
+In the absence of preemption or fine grained resource control, high priority workloads can be delayed by longer running, lower priority kernels. 
+This thesis investigates GPU scheduling strategies tailored to real time systems, focusing on persistent threads as a mechanism to improve responsiveness, reduce latency variability, and ensure the timely execution of safety critical tasks in autonomous driving.
 
-This thesis will examine and implemented an approach to \ac{GPU} scheduling using coroutines on persistant threads to reduce latency variability and adress contention issues, ultimately delivering the predictability and reliability necessary for real-time autonomous driving applications. 
+Early autonomous driving systems used a distributed architecture to ensure the timing guarantees of individual modules \cite{6809196}.
+These systems break the driving task into the modules perception, localization, planning, and control, which together form a processing pipeline. 
+This pipeline enables the vehicle to interpret its surroundings, determine its position within them, make decision, and execute corresponding actions. 
+These modules were mapped to individual compute units, where every subsystem only ran tasks related to their modules.  
+Among the benefits of this system design is that the load on the compute units is consistent.
+For example, the planning node only ever computes planning related tasks. 
+In this manner, the distributed architecture allows for fine tuning the timing between modules to achieve a low latency responses from the hardware. 
 
-\subsection{Necessesity of \acsp{GPU} in Autonomous Driving}
-Recently, \acsp{GPU} have revolutionized data processing and machine learning training and inference with their ability to handle massive amounts of data and execute simple, but highly-parallelized computations.
+Today, as the hardware has become more performant, autonomous driving has become centralized, in order to lower costs and latency between modules.
+By centralizing the compute resources, the system uses a singular compute node, which manages all of the tasks simultaneously. 
+This structural choice benefits the system design as well as the latency cost as all the tasks are colocated. 
+The drawback to the centralized computing node is the contention between tasks, where the execution time is variable depending on the current execution queue.
+
+In particular, recent advances in \acsp{GPU} have enabled this resource centralization due to the significant performance improvements they offer for data heavy processing and machine learning tasks.
+\acsp{GPU} 
+
+To support this centralized architecture, modern compute nodes integrate both a CPU and a GPU, with the GPU playing a key role in meeting the performance and latency requirements imposed by the data heavy processing and machine learning tasks in autonomous driving systems. 
+Using only a singular 
+Each of the individual modules involved rely on 
+Firstly, perception gathers and interprets vast amounts of data from numerous sensors, using complex  \acs{CNN} networks to recognize pattern within the images \cite{Krizhevsky_undated-ao}.
+Commercial use of \acs{CNN} have been around for over 30 years \cite{proofCNNused}, but were only widespread adopted due in part to advances in hardware GPU performance \cite{self_driving_learning}.
+After perception, localization and mapping use a \ac{SLAM} algorithm to build maps and determine the vehicle's precise location within its enviornment and the generated map. 
+Using the foundation set by localization and mapping, path planning determines the vehicles trajectory from its current location to a target destination, while respecting traffic laws and avoiding obstacles. 
+Lastly, control actively follows the trajectory and sets the speed, steering and braking required for the planned path.
+The \acs{SLAM} algorithm, path planning and control all require different deep networks, which are computationaly inefficient for \acsp{CPU}.
+In order to capture real time updates in the surroundings, the autonomous driving system has to constantly compute each of these modules, which requires significant computational ressources that a \acs{CPU} can not deliver with the necessary latency. 
+
+
+%\cite{taskparallelism} for cuda api not supporting interruption
+Due to their highly parallel architecture, \acsp{GPU} excell over \acsp{CPU} on the highly parallelisable computational workloads required by machine learning and processing tasks.
+\acsp{GPU} were originally developed to accelerate graphics rendering, a task heavy in computations for each of the numerous pixel values consumer products have.
+Graphics rendering tasks differ from normal \acs{CPU} workloads in the control overhead required.
+Typical interactive systems, for which \acs{CPU} were designed, use workloads that include numerous branches, I/O, and sequential workflows.
+Achieving higher single-threaded performance means dedicating a "significant portion of transistors to non-computational tasks like branch prediction and caching", which \acsp{GPU} can forgo in favor of increasing arithmetic intensity \cite{Owens2007-kp}.
+Due to the fundamental architecture differences, compute heavy tasks that do not require complex control logic are far faster on \acsp{GPU} as opposed to \acsp{CPU}.
+
+
+Unfortunately, for the same architectural reason as why \acsp{GPU} excell on compute heavy workloads, they can not guarantee execution latencies. 
+\acs{CPU} techniques used to achieve real time latency guarantees and meet deadlines can not be transferred to \acsp{GPU} due to the architectural and programming differences. 
+GPU kernels are queued and scheduled based on availability and executed until completion without interruption.
+If all the compute resources are saturated, incoming tasks become delayed, as there is no native thread context switching, something typical interactive or real time systems employ to achieve high responsiveness. 
+The batch system used by \acsp{GPU} leads to variable execution and latency times, dependent on the current and queued loads.
+
+
+Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
+They use a concept of deadlines, which are subdivided into soft and hard-deadlines. 
+Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
+For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
+If these deadlines are not met, the safety of the passengers and the system is at risk. 
+On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
+In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
+Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
+
+%This choice in architectural design makes \acsp{GPU} excell on data processing and machine learning workloads due to thier
+
+%Both data processing and machine learning tasks rely extensively on intensive matrix computations, which can be easily parallelized.
+%These tasks benefit, both in processing speed and model complexity, from the \acs{GPU}'s ability to perform thousands of operations in parallel, far greater than the traditional \acs{CPU} can achieve.
+
+%\section{\acs{GPU} Limitations in Real Time Systems}
+
+%\subsection{GPU vs CPU Threads}
+
+%\acsp{GPU} have parallelised the thread centric scheduling execution model on \acsp{CPU} to reflect the architectural design.  
+%\acsp{CPU} schedule threads to execute
+
+%The fundamental differences betweeReal time systems \acs{GPU} threads differ significantly from \acs{CPU} threads, esulting
+%To maximize computational and energy efficiency at scale, \acsp{GPU} maintain a minimal thread context in comparison to \acsp{CPU}. 
+%\acsp{CPU} are engineered for general-purpose computing, where performance often involves improving single threaded execution.
+%Achieving higher single-threaded performance means dedicating a "significant portion of transistors to non-computational tasks like branch prediction and caching" \cite{Owens2007-kp}.
+%Instead, \acsp{GPU} sacrifice this complex control overhead to save transistors, which can be used for increasing the arithmetic intensity capability.
+%This architectural choice is illustrated in Figure\Figure~\ref{fig:thread_complexity}, which highlights how the \acs{GPU}’s simplified control logic reduces overhead, allowing more transistors to be used for arithmetic units \cite{Owens2007-kp}.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{1.0\linewidth}{!}{
+    \input{figures/cpuvgpu}
+  }
+  \caption{CPU vs GPU Thread Architecture}
+  \label{fig:thread_complexity}
+\end{figure}
+
+
+Although core components may be named differently, both CPU and GPU threads work fundamentally similarily with an instruction decoder, registers and an arithmetic unit. 
+The differences arise when trying to maximize a single control flow. 
+The CPU will prefetch instructions, reorder them to most effectively use the functional units and speculatively compute instructions based on a branch predictor. 
+On the other hand, \acs{GPU} threads can not execute instructions out-of-order, use only manual prefetching, and have a simple branch predictor that is far more conservative than in \acs{CPU}'s.
+
+\begin{figure}[htbp]
+  \centering 
+  \resizebox{1.0\linewidth}{!}{
+	  \input{figures/singlethreadedcomp.tex}
+  }
+  \caption{Single threaded Matrix Multiplication Execution}
+  \label{fig:singlethreadedgraph}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\resizebox{1.0\linewidth}{!}{
+		\input{figures/comparematrix.tex}
+	}
+	\caption{Data Matrix}
+	\label{fig:singlethreadedmatrix}
+\end{figure}	
+
+
+
+
+\acsp{GPU} have revolutionized data processing and machine learning training and inference with their ability to handle massive amounts of data and execute simple, but highly-parallelized computations.
 Data processing systems, based on traditional CPUs, rely on a \ac{MIMD} architecture that excels at handling complex control logic at high frequencies by executing different instructions on seperate data streams concurrently. 
 However, for  tasks that require the repeated execution of singular instructions such as large-scale data processing workloads, \acsp{CPU} are burdened by the overhead of the complex control logic, where a simpler, more parallel design would be more effective.
 \acs{GPU}s, created to overcome this limitation, use a \ac{SIMT} architecture with thousands of simpler, but slower threads executing simultaneously. 
@@ -31,9 +137,9 @@ The capability to execute these repeptitive workloads concurrently across differ
 Furthermore, \acsp{GPU} are necessary to process the data rate produced by high-bandwidth, high-frequency sensors used in autonomous driving. 
 The parallelism in \acs{GPU}s makes them the ideal platform over CPUs for deep learning and data processing tasks, tasks fundamental for autonomous driving systems.
 
-\subsection{Autonomous Driving as a Real Time System}
+
 Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
-They use a concept of deadlines, which are subdivided into soft and hard-deadlines. 
+deadlines, which are subdivided into soft and hard-deadlines. 
 Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
 For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
 If these deadlines are not met, the safety of the passengers and the system is at risk. 
@@ -41,13 +147,13 @@ On the other hand, soft deadlines are not critical and missing these deadlines d
 In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
 Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
 
-\subsection{GPU weaknesses in Real Time Systems}
-Given the reliance on \acsp{GPU} in autonomous driving systems for data processing and machine learning, they need to meet the strict timing requirements of real-time applications, which is lacking under current scheduling methods.
-GPU tasks are traditionaly queued and scheduled based on availabilty to optimize for high throughput applications like graphics rendering and offline machine learning training.
-These tasks run to completion, similar to a batch system, meaning multiple tasks, such as the different modules in autonomous driving execute sequentially. 
-Thus, depending on the current workload for the GPU, the execution time and latency can vary, which poses a safety risk.
-To adapt \acsp{GPU} to the requirements of real time systems, while maintaining the advantages they provide in processing power, the scheduling of these systems needs to support asynchronous programming.
 
+
+
+
+\subsection{Necessesity of \acsp{GPU} in Autonomous Driving}
+
+\subsection{Autonomous Driving as a Real Time System}
 
 \section{Background}
 \subsection{Asynchronous Programming and Coroutines}
@@ -68,22 +174,6 @@ Capturing the continuation of a function allows the resumption of the program to
 %Here, the scheduled tasks are independent of the control flow, meaning the execution order of the subtasks
 
 
-
-\subsection{Autonomous Vehicles}
-Autonomous driving systems, such as self-driving cars, are subdivided into several modules, perception, localization, mapping, planning and control, which all rely on massive data processing and machine learning, to help the system to understand its enviornment, plan its trajectory and drive without any human help. 
-Perception gathers and interprets vast amounts of data from numerous sensors, such as \ac{LiDAR} sensors, cameras, radar, and ultrasonic sensors, to identify and classify surrounding objects \cite{apollo}.
-After perception, localization and mapping use a \ac{SLAM} algorithm to build maps and determine the vehicle's precise location within its enviornment and the generated map. 
-Using the foundation set by localization and mapping, path planning determines the vehicles trajectory from its current location to a target destination, while respecting traffic laws and avoiding obstacles. 
-Lastly, control actively follows the trajectory and sets the speed, steering and braking required for the planned path.
-Autonomous driving sytems are constantly computing each of these modules based on updates in the surroundings, which requires significant computational ressources to maintain a low latency. 
-
-Specifically, these modules require large amounts of data to accurately compute , which are based in deep learning, a machine learning technique that demands vast amounts of computational resources.
-In perception, deep learning models, particularily \acs{CNN}s identify objects, lane markings, pedestrians, vehicles, and traffic lights from the raw sensor data. 
-Beyond perception, deep learning enhances localization by refining sensor fusion techniques, improving accuracy in determining the vehicles position. 
-Furthermore, deep learning also supports planning and control, through reinforcement learning and predictive models to optimize trajectories. 
-The real-time nature of these components are needed to reduce the latency, which requires these models to continously be updating their predictions as new sensor input arrives and the vehicle moves.
-This places a high demand on the hardware, requiring high-performance accelerators to process vast amounts of data efficiently. 
-To meet these requirements, these computations are scheduled on to a \ac{GPU}, which provides the high degree of parallelism required by the vast amount of data and computations within autonomous driving. 
 
 
 

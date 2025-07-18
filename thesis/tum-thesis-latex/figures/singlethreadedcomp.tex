@@ -1,0 +1,40 @@
+\begin{tikzpicture}
+\begin{axis}[
+    ymode=log,
+    log basis y=10,
+    width=12cm,
+    height=8cm,
+    xlabel={Matrix size (N × N)},
+    ylabel={Execution time (ms)},
+    title={Single-threaded Matrix Multiplication: CPU vs GPU},
+    legend pos=north west,
+    xtick=data,
+    xticklabels={32x32, 64x64, 128x128, 256×256, 512×512, 1024×1024},
+    ymin=0,
+    ymax=100000,
+    grid=major,
+    legend style={draw=none, fill=none}
+]
+
+\addplot+[mark=*, thick, blue] coordinates {
+    (1, 0.068705)
+    (2, 0.285104)
+    (3, 2.751817)
+    (4, 20.706290)
+    (5, 198.716200)
+	(6, 3356.762000)
+};
+\addlegendentry{CPU (1 thread)}
+
+\addplot+[mark=triangle*, thick, red] coordinates {
+    (1, 0.615584)
+    (2, 4.249685)
+    (3, 28.923530)
+    (4, 287.943700)
+    (5, 2446.466000)
+    (6, 46097.410000)
+};
+\addlegendentry{GPU (1 thread)}
+
+\end{axis}
+\end{tikzpicture}

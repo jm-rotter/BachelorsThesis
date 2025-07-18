@@ -1,0 +1,58 @@
+\begin{tikzpicture}[font=\sffamily\small]
+% === CPU THREAD BLOCK ===
+\begin{scope}[xshift=0cm, yshift=0cm]
+    % Main CPU thread container with shadow
+    \node[draw, thick, rounded corners, minimum width=7.5cm, minimum height=4.5cm, fill=blue!10, drop shadow={shadow xshift=1pt,shadow yshift=-1pt,opacity=0.15}] (cpuBox) {};
+
+    % Group titles
+    \node[font=\bfseries] at (-2.1, 2.0) {Core Components};
+    \node[font=\bfseries] at (2.1, 2.0) {Control \& Cache};
+
+    % Left side shared components
+    \node[draw, fill=blue!40, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (-2.1,1.4) {Registers};
+    \node[draw, fill=blue!40, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (-2.1,0.7) {ALU};
+    \node[draw, fill=blue!40, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (-2.1,0.0) {Instr. Decoder};
+
+    % Right side CPU-only components
+    \node[draw, fill=blue!25, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (2.1,1.4) {Branch Predictor};
+    \node[draw, fill=blue!25, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (2.1,0.7) {Reorder Buffer};
+    \node[draw, fill=blue!25, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (2.1,0.0) {Out-of-Order Exec};
+    \node[draw, fill=blue!25, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (2.1,-0.7) {Prefetch Unit};
+    \node[draw, fill=blue!25, minimum width=2.8cm, minimum height=0.5cm, rounded corners, align=center] at (2.1,-1.4) {L1/L2 Cache};
+
+    % CPU label
+    \node[font=\itshape, text=black!70] at (0,-3.2) {Complex, latency-optimized thread};
+\end{scope}
+
+
+% === GPU THREAD GRID ===
+\begin{scope}[xshift=10cm, yshift=-1.4cm]
+    % 2x2 Grid of simple GPU threads
+    \foreach \x in {0,1} {
+        \foreach \y in {0,1} {
+            \begin{scope}[xshift=3.0*\x cm, yshift=2.8*\y cm]
+                % Single GPU thread block
+                \node[draw, thick, rounded corners, minimum width=2.6cm, minimum height=2.5cm, fill=green!15, drop shadow={shadow xshift=0.5pt,shadow yshift=-0.4pt,opacity=0.1}] {};
+
+                \node[draw, fill=green!50, minimum width=1.4cm, minimum height=0.35cm, rounded corners, align=center] at (0,0.85) {Registers};
+                \node[draw, fill=green!50, minimum width=1.4cm, minimum height=0.35cm, rounded corners, align=center] at (0,0.3) {CUDA Core};
+                \node[draw, fill=green!50, minimum width=1.4cm, minimum height=0.35cm, rounded corners, align=center] at (0,-0.23) {Decoder};
+                \node[draw, fill=green!50, minimum width=1.4cm, minimum height=0.35cm, rounded corners, align=center] at (0,-0.80) {Warp Scheduler};
+            \end{scope}
+        }
+    }
+
+    % GPU label
+    \node[font=\itshape, text=black!70] at (1.8, -1.8) {Thousands of simple, throughput-optimized threads};
+\end{scope}
+
+
+% === Titles ===
+\node[font=\Large\bfseries] at (0,3.3) {CPU Thread};
+\node[font=\Large\bfseries] at (12.0,3.3) {GPU Threads};
+
+
+% === Arrow between CPU and GPU ===
+\draw[->, thick] (4.3,0.0) -- (8.0,0.0) node[midway, above, font=\small\itshape] {Simplification via Parallelism};
+
+\end{tikzpicture}
