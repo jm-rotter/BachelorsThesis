@@ -24,6 +24,8 @@
 \usepackage[printonlyused]{acronym}
 \usepackage{ifthen}
 \usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
 
 
 \hypersetup{hidelinks} % removes colored boxes around references and links
@@ -101,4 +103,10 @@
   keywordstyle=\bfseries\color{TUMBlue},
   stringstyle=\color{TUMAccentGreen},
   captionpos=b
+}
+
+\lstdefinelanguage{cuda}{
+    language=C++,
+    morekeywords={cudaMallocHost, __device__, __shared__, __constant__, cudaHostAlloc,cudaMalloc,cudaMemcpy,cudaFree,cudaMemcpyHostToDevice,cudaMemcpyDeviceToHost},
+    keywordstyle=\color{blue}\bfseries,
 }

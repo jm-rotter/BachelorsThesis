@@ -129,20 +129,40 @@ An in depth view of the processing partition's architecture is provided in Figur
   \label{fig:processing_partition}
 \end{figure}
 
-A \ac{SM} can support up to 64 concurrent warps, allowing a maximum of $64 * 32 = 2048$ threads per \ac{SM}. 
+
+The programmer is limited by the hardware constraints of each \acs{SM} and the total number of \acs{SM}.
+On the Tesla V100 architecture, there are 80 \acs{SM}, each supporting up to 64 concurrent warps, allowing a maximum of $64 * 32 = 2048$ threads per \acs{SM}.
+In total, that leaves a maximum of $80 * 2048 = 163,840$ total threads.
+For comparison, the current \acs{CPU} I have, an Intel Tiger Lake (i5-1135G7), has 4 cores, with 2 hardware threads per core supporting a maximum of 8 hardware threads. 
+Even server chips such as the Intel Xeon Gold (6148) only supports 20 hardware threads. 
+Although the \acs{GPU} oversubscribes the number of Warps and threads, versus the total number of execution units, at a minimum it can still execute $4 * 32 * 80 = 10840$ threads at a time. 
+These hardware enforced limits must observed when programming the \acs{GPU}.
+
+\section{GPU Programming using the CUDA API}
+
+NVIDIA has provided an underlying CUDA API to allow programmers to run tasks on the GPU in a heterogenous computing architecture. 
+The \acs{GPU}, in this context device, memory is standalone from the \acs{CPU}, in this context host, memory. 
+However, the \acs{GPU} execution is dependent on tasks received from the \acs{CPU}.
+Given that the device memory is seperate from the host memory, typical \acs{GPU} workloads work by first allocating memory on the device, copying the memory over, executing the program, copying the memory back, and then freeing the device memory.
+Typically, the \acs{CPU} uses the \acs{GPU}, by copying the memory over onto the chip, launching the kernel application, and then copying the result from the \acs{GPU} back to the \acs{CPU}.
+Although the CUDA API manages the actual underlying steps, the API allows the programmer to specifically program and optimize the \acs{GPU} for their specific task. 
+
+\subsection{Memory and Bandwidth Consideration}
+
+When transfering data from the host, the CUDA API does not have access to the \acs{CPU}'s disk memory and thus requires the memory to be pinned to the \acs{CPU}'s \acs{RAM}.
+The CUDA API will manually do this, but host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` skip the added step of pinning memory and are thus faster. 
+However, if the pinned memory is too large, it restricts the rest of the \acs{CPU}'s programm in avaiable \acs{RAM}, which may degrade performance by forcing the swapping of memory to disk storage. 
+The device memory is partitioned into main memory, the \acs{VRAM}, with 16 GB as well as the L0, L1 and L2 caches. 
+The programmer can decide between three different models of memory management \lstinline[language=cuda]`__constant__, __device__`, and \lstinline[language=cuda]`__shared__` memory.
+Constant memory can only be written to from the \acs{CPU}
 
 
 
-\acsp{GPU} have revolutionized data processing and machine learning training and inference with their ability to handle massive amounts of data and execute simple, but highly-parallelized computations.
-Data processing systems, based on traditional CPUs, rely on a \ac{MIMD} architecture that excels at handling complex control logic at high frequencies by executing different instructions on seperate data streams concurrently. 
-However, for  tasks that require the repeated execution of singular instructions such as large-scale data processing workloads, \acsp{CPU} are burdened by the overhead of the complex control logic, where a simpler, more parallel design would be more effective.
-\acs{GPU}s, created to overcome this limitation, use a \ac{SIMT} architecture with thousands of simpler, but slower threads executing simultaneously. 
-% TODO
-For example, the current architecture generally supports as many as 2048 threads in a single block, which can run on a single \ac{SM}, scaling the number of concurrent threads by the number of \acsp{SM}, by the number of \acsp{SM}, 80 on the newer models. 
-% TODO
-The parallelism provided by the \ac{SIMT} model allows a far higher throughput that outperforms \acsp{CPU}. 
-Here, each data element is processed by its own thread, allowing the same instruction to be executed simultaneously across numerous data streams.
 
+
+
+
+\pagebreak
 % TODO
 Real time systems, which rely extensively on machine learning tasks and data processing tasks, Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
 In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions \cite{JEON2021167}.
