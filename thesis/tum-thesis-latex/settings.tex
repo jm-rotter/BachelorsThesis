@@ -4,13 +4,16 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[sc]{mathpazo}
-\usepackage[ngerman,american]{babel}
+%\usepackage[ngerman,american]{babel}
+\usepackage[american]{babel}
+%\usepackage[ngerman,american,provide=*]{babel}
 \usepackage[autostyle]{csquotes}
-\usepackage[%
+\usepackage[
   backend=biber,
   style=ieee,
   maxbibnames=99
 ]{biblatex} 
+\addbibresource{bibliography.bib} 
 \usepackage{graphicx}
 \usepackage{scrhack} % necessary for listings package
 \usepackage{listings}
@@ -26,6 +29,7 @@
 \usepackage{float}
 \usepackage{listings}
 \usepackage{xcolor}
+\usetikzlibrary{shadows}
 
 
 \hypersetup{hidelinks} % removes colored boxes around references and links

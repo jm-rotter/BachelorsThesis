@@ -25,8 +25,8 @@ while true; do
   done
 
   if [[ $changed -eq 1 ]]; then
-    echo "Running pdflatex main.tex"
-    pdflatex -interaction=nonstopmode main.tex
+    echo "Running make"
+	make > /dev/null
     echo "Done."
   fi
 

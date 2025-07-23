@@ -88,10 +88,10 @@ Following these results, the \acs{GPU} should only be used in place of the \acs{
 If a \acs{GPU} scheduler is written without regard for these differences, it will may not be able to achieve the desired performance benefit.
 This fundamental architectural and programming style for \acsp{GPU} must be understood in order to maximize the throughput. 
 
-\subsection{GPU Hardware Architecture based on the Tesla V100 GPU\footnote{For the purpose of this thesis, the NVIDIA Tesla V100 GPU chip, which uses the Volta GV100 architecture, was selected due to its availability and high performance computing capabilities.}}
+\subsection{GPU Hardware Architecture based on the Tesla V100 GPU}
 
 
-For the purposes of programming and scheduling tasks onto the Tesla V100 GPU, the GPU appears as an array of independent highly parallelized processors, called \acsp{SM}.
+For the purposes of programming and scheduling tasks onto the Tesla V100 GPU\footnote{For the purpose of this thesis, the NVIDIA Tesla V100 GPU chip, which uses the Volta GV100 architecture, was selected due to its availability and high performance computing capabilities.}, the GPU appears as an array of independent highly parallelized processors, called \acsp{SM}.
 The \acsp{SM} are grouped into specific \acsp{TPC}, which are then further grouped into \acsp{GPC}, but the specific mapping of tasks to \acs{SM}, \acs{TPC}, and \acs{GPC} is determined by the proprietary hardware scheduler, the GigaThread Engine. 
 The exact workings and scheduling methods of the GigaThread Engine are not publicly available, but this module maps \acsp{CTA}, groups of threads executing the same instruction code, to the individual \acsp{SM} based a multitude of factors: hardware resources, parallelism, priorities, and dependencies.
 Similarily, the global memory and L2 cache utilization are determined by the hardware and transparent to the programmer.
@@ -147,20 +147,57 @@ Given that the device memory is seperate from the host memory, typical \acs{GPU}
 Typically, the \acs{CPU} uses the \acs{GPU}, by copying the memory over onto the chip, launching the kernel application, and then copying the result from the \acs{GPU} back to the \acs{CPU}.
 Although the CUDA API manages the actual underlying steps, the API allows the programmer to specifically program and optimize the \acs{GPU} for their specific task. 
 
-\subsection{Memory and Bandwidth Consideration}
+\subsection{Memory and Bandwidth Considerations}
 
-When transfering data from the host, the CUDA API does not have access to the \acs{CPU}'s disk memory and thus requires the memory to be pinned to the \acs{CPU}'s \acs{RAM}.
-The CUDA API will manually do this, but host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` skip the added step of pinning memory and are thus faster. 
-However, if the pinned memory is too large, it restricts the rest of the \acs{CPU}'s programm in avaiable \acs{RAM}, which may degrade performance by forcing the swapping of memory to disk storage. 
-The device memory is partitioned into main memory, the \acs{VRAM}, with 16 GB as well as the L0, L1 and L2 caches. 
-The programmer can decide between three different models of memory management \lstinline[language=cuda]`__constant__, __device__`, and \lstinline[language=cuda]`__shared__` memory.
-Constant memory can only be written to from the \acs{CPU}
+When transfering data from the host, the CUDA API does not have access to the \acs{CPU}'s disk memory and requires the memory to be pinned to the \acs{CPU}'s \acs{RAM}.
+While the CUDA runtime can perform this pinning autonomatically, host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` skip the added step of pinning memory and enable faster transfers. 
+Particularily in applications that are bandwidth bottlenecked, this added transfer latency is significant.
+If the pinned memory is too large; however, it restricts the memory availability for the programs currently running on the \acs{CPU}, which may degrade performance by forcing the swapping of memory to disk storage. 
+
+In CUDA, understanding how memory is transferred and managed across the host and the device is crucial for optimizing performance.  
+For the programmer, the device memory is partitioned into main memory, the \acs{VRAM}, with a size of 16 GB on the Tesla V100 architecture, as well as on chip memory. 
+The programmer can decide between three different models of memory management \lstinline[language=cuda]`__constant__`, \lstinline[language=cuda]`__device__`, and \lstinline[language=cuda]`__shared__` memory.
+Both constant and device memory are allocated to the global memory, with constant memory only being writeable by the \acs{CPU} and allowing faster access times due to the reduced coherency required.
+The shared memory is shared among all warps and threads of a given \acs{SM} in the L1 data and shared memory cache.  
+This memory is far more performant than device memory, but limited in size, due to its location on chip.
+
+\subsection{Kernel Launches}
+
+The task of launching and running device code begins from a kernel launch, which passes the function, its parameters, pointers, and the grid and block dimensions to the \acs{GPU}.
+Each kernel launch specifies how work is diveded among thread blocks and individual threads. 
+Every block is mapped to a \acs{SM} injectively and is constrained by that \acs{SM}'s hardware resources including the number of threads, registers, available warps, and shared memory. 
+If there are no available \acs{SM}'s to meet these requirements the kernel launch will fail.
+Should the \acs{CTA} or thread block not fully saturate the hardware resources, additional blocks may be scheduled to the same \acs{SM}. 
+Each thread and block is assigned unique identifiers, threadIdx and blockIdx, that allow them to determine their position in the execution grid. 
+These identifiers are crucial for structuring parallel computations and can be used to optimize memory access patterns. 
+For instance, when threads in a warp access consecutive memory locations, the memory accesses can be coalesced into a single transaction, significantly improving memory throughput
+
+The exact syntax is seen below, 
 
 
+\subsection{CUDA Streams}
+
+CUDA API calls are queued to the \acs{GPU} using cuda streams, which enforce the execution order of tasks.
+\lstinline[language=cuda]{cudaStream_t} defines a command queue for the GPU, which is similar to a Linux file pointer in that it returns an index referring to the specific allocated stream.
+Each stream allows the queuing of operations such as kernel launches, memory copies, and memory set operations.
+Commands submitted to the same stream are executed sequentially in the order they were issued, ensuring deterministic behavior within that stream.
+Multiple streams, however, can run concurrently, enabling overlapping execution of kernels and memory operations to maximize GPU utilization and improve overall performance.
+By carefully managing streams, developers can optimize task parallelism and resource usage on the GPU.
+
+The Tesla V100 GPU has two seperate hardware copy engines for copying data from the host to the device and back. 
+The copy engines support the transfer in both directions, with one engine specifically being allocated for the unidirectional \acs{D2H} transfer and the other for \acs{H2D}.
+Using only one stream for multiple kernels fails to maximize the device memory bandwidth. 
+For example, consider the launch of two independent kernels, kernel A and kernel B, each
+
+Executing both kernls in the same stream would force kernel B to wait for kernel A to finish before being able to copy memory to the device using the \acs{H2D}
 
 
+Using different streams, the streams non deterministically execute with respect to one another, except for the default stream. 
+\subsection{Synchronization between Streams}
 
+Using multiple streams enables the programmer greater controll over the execution and perform optimization suited to the hardware. 
 
+By default everything goes into stream 0, but operations defined in different streams may execute concurrently.
 
 \pagebreak
 % TODO
