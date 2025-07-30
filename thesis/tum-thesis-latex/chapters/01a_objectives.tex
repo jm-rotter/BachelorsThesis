@@ -1,0 +1,15 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+
+\chapter{Objectives}\label{chapter:Objectives}
+
+The objective for this thesis is to develop, implement and evaluate a persistant thread with coroutine based scheduling approach for GPU threads in Apollo\footnote{Apollo is an open-source project developed by Baidu. For more information, visit the GitHub repository: \url{https://github.com/ApolloAuto/apollo}}, an open source autonomous driving platform, to improve real-time safety and determinism by ensuring a predictable scheduling behavior. 
+To adress the limitations of GPUs in real time systems, the new coroutine based scheduling mechanism LuisaCompute-coroutine\footnote{\cite{Zheng2022LuisaRender} and the accompanying source code \url{https://github.com/LuisaGroup/LuisaCompute-coroutine/tree/next}} will be integrated into Apollo. 
+The Luisa coroutine scheduling was designed for graphics rendering tasks, around which their \acs{DSL} is written. 
+Therefore, the scheduler and its \acs{DSL} will need to be adapted to fit the requirements of the autonomous driving domain, which prioritizes responsiveness, fault tolerance, and strict timing guarantees.  
+By integrating this feature into Apollo, the GPU will be able to use coroutines for more flexible and efficient task management, ultimately enhancing the reliability and safety of the real-time autonomous driving platform.  
+
+
+
+
+	
