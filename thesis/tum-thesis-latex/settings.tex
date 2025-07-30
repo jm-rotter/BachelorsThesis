@@ -111,6 +111,48 @@
 
 \lstdefinelanguage{cuda}{
     language=C++,
-    morekeywords={cudaMallocHost, __device__, __shared__, __constant__, cudaHostAlloc,cudaMalloc,cudaMemcpy,cudaFree,cudaMemcpyHostToDevice,cudaMemcpyDeviceToHost},
+    morekeywords={
+        __global__, __device__, __host__, __shared__, __constant__,
+        cudaMalloc, cudaFree, cudaMemcpy, cudaMemcpyHostToDevice, cudaMemcpyDeviceToHost,
+        cudaMallocHost, cudaHostAlloc
+    },
+    alsoletter={_},
+    morekeywords=[2]{int, float, double, bool, void, sizeof},
+    morekeywords=[3]{printf, malloc, free},
     keywordstyle=\color{blue}\bfseries,
+    keywordstyle=[2]\color{teal}\bfseries, 
+    keywordstyle=[3]\color{purple}\bfseries,    
+    sensitive=true
+}
+
+\lstset{
+    language=cuda,
+    basicstyle=\ttfamily\small,
+    frame=single,
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    commentstyle=\color{gray},
+    stringstyle=\color{orange},
+    showstringspaces=false,
+    tabsize=2,
+    captionpos=b
+}
+
+\lstdefinelanguage{x86asm}{
+  morekeywords={pushq, popq, movq, ret},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+}
+
+\lstset{
+  language=x86asm,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  showstringspaces=false
 }

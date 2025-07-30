@@ -2,6 +2,17 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 \chapter{Background}\label{chapter:Background}
 
+\section{Real Time Systems}
+
+Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
+deadlines, which are subdivided into soft and hard-deadlines. 
+Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
+For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
+If these deadlines are not met, the safety of the passengers and the system is at risk. 
+On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
+In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
+Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
+
 \section{Integration of GPUs in Autonomous Driving Systems}
 
 Autonomous driving system require \acsp{GPU} for the computational acceleration they provide to the many parallel machine learning models that interpret sensor data, make decisions and ensure safe navigation in real time. 
@@ -141,11 +152,53 @@ These hardware enforced limits must observed when programming the \acs{GPU}.
 \section{GPU Programming using the CUDA API}
 
 NVIDIA has provided an underlying CUDA API to allow programmers to run tasks on the GPU in a heterogenous computing architecture. 
-The \acs{GPU}, in this context device, memory is standalone from the \acs{CPU}, in this context host, memory. 
+The \acs{GPU} acts as a standalone processor with its own memory, which is not shared with the host system or \acs{CPU}'s main memory.
 However, the \acs{GPU} execution is dependent on tasks received from the \acs{CPU}.
 Given that the device memory is seperate from the host memory, typical \acs{GPU} workloads work by first allocating memory on the device, copying the memory over, executing the program, copying the memory back, and then freeing the device memory.
-Typically, the \acs{CPU} uses the \acs{GPU}, by copying the memory over onto the chip, launching the kernel application, and then copying the result from the \acs{GPU} back to the \acs{CPU}.
 Although the CUDA API manages the actual underlying steps, the API allows the programmer to specifically program and optimize the \acs{GPU} for their specific task. 
+
+Consider the following example program, which allocates device memory and launches a kernel consisting of one block and 32 threads. 
+
+\begin{lstlisting}[language=cuda,caption={Simple CUDA Kernel}, label={lst:simple-kernel}]
+__global__ void increment(float *x) {
+    x[threadIdx.x] += 1.0f;
+}
+
+int main() {
+    const int N = 1024;
+    float h_x[N];
+    for (int i = 0; i < N; ++i)
+        h_x[i] = i * 1.0f;
+
+    float *d_x;
+    cudaMalloc((void**)&d_x, N * sizeof(float));
+    cudaMemcpy(d_x, h_x, N * sizeof(float), cudaMemcpyHostToDevice);
+
+    increment<<<1, 32>>>(d_x);
+
+    cudaMemcpy(h_x, d_x, N * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(d_x);
+    return 0;
+}
+\end{lstlisting}
+
+The codeblock above depicts the launching and execution of a simple GPU kernel that demonstrates the memory allocation scheme used for executing kernel code.
+The kernel itself is the execution of the \acs{GPU} device program denoted by \lstinline[language=cuda]`__global__` function, while the \lstinline`<<<_, _>>>` syntax enables the programmer to specifically partition their execution tasks across waiting threads. 
+The first value in the \lstinline`<<<1,32>>>` determines the block dimensions, which are either given as an array or a 3 dimensional tensor. 
+Similarily, the second value determines the thread dimensions in the same format as the block dimension. 
+In particular, this code allocates a singular block with an array of 32 threads, which completely saturates a singular warp. 
+These dimensional vectors allow the different threads to maintain lockstep execution, while processing different values of the same array, as seen by using the dimensional properties assigned to the individual threads by the runtime system. 
+
+The main function, executed by the \acs{CPU} or host, initializes the parameters, executes the kernel and then copies the memory back. 
+The host array, \lstinline[language=C++]`h_x` is allocated to the stack, which exists only in \acs{CPU} memory, which needs to be passed to the \acs{GPU}.
+Passing the array by value, something common in C++ code, seems at first the most simple; however, poses two seperate issues.
+Firstly, when passing arrays as parameters, they decay to pointers, which CUDA forbids, as the pointer passed to the device does not have any meaning.
+Secondly, if the array were wrapped in a struct and passed to the function to circumvent the first issue, the array would be allocated to every single thread independently. 
+In the example above, the array would be allocated 32 times, each independent from one another, taking up further memory bandwidth and both on chip and global device memory. 
+In this case, each individual thread, would get the array passed by value, leading to a total 32 threads * 1024 floats * 4 bytes per float or 128KiB. 
+Instead, them memory is allocated in the device memory, transferred once and each thread recieves only the device pointer \lstinline[language=C++]`d_x`, which can be used to copy the results back to the host.  
+
+
 
 \subsection{Memory and Bandwidth Considerations}
 
@@ -170,9 +223,8 @@ If there are no available \acs{SM}'s to meet these requirements the kernel launc
 Should the \acs{CTA} or thread block not fully saturate the hardware resources, additional blocks may be scheduled to the same \acs{SM}. 
 Each thread and block is assigned unique identifiers, threadIdx and blockIdx, that allow them to determine their position in the execution grid. 
 These identifiers are crucial for structuring parallel computations and can be used to optimize memory access patterns. 
-For instance, when threads in a warp access consecutive memory locations, the memory accesses can be coalesced into a single transaction, significantly improving memory throughput
+For instance, when threads in a warp access consecutive memory locations, the memory accesses can be coalesced into a single transaction, significantly improving memory throughput. 
 
-The exact syntax is seen below, 
 
 
 \subsection{CUDA Streams}
@@ -187,121 +239,11 @@ By carefully managing streams, developers can optimize task parallelism and reso
 The Tesla V100 GPU has two seperate hardware copy engines for copying data from the host to the device and back. 
 The copy engines support the transfer in both directions, with one engine specifically being allocated for the unidirectional \acs{D2H} transfer and the other for \acs{H2D}.
 Using only one stream for multiple kernels fails to maximize the device memory bandwidth. 
-For example, consider the launch of two independent kernels, kernel A and kernel B, each
+For example, consider the launch of two independent kernels, kernel A and kernel B, each on the same cuda stream. 
+Both A and B, allocate and copy memory onto the device, schedule their kernels and then copy the results back. 
+Regardless of the ordering of API calls, both kernels can not run simultaneously or use both \acs{H2D} and \acs{D2H} copy engines simultaneously.
 
-Executing both kernls in the same stream would force kernel B to wait for kernel A to finish before being able to copy memory to the device using the \acs{H2D}
+To best utilize the hardware and ensure correct results, a different stream need to be used for each synchronous kernel launch.  
+Each kernel must remain in the same stream as the memory copys related to that stream in order to ensure the arguments used by the kernel are accurate and that the results are not prematurely returned. 
+By placing each kernel in its own stream, the CUDA API, depending on the time and specific situation run multiple kernels, run kernels and memory transfers, or perform both \acs{D2H} and \acs{H2D} API calls simultaneously.
 
-
-Using different streams, the streams non deterministically execute with respect to one another, except for the default stream. 
-\subsection{Synchronization between Streams}
-
-Using multiple streams enables the programmer greater controll over the execution and perform optimization suited to the hardware. 
-
-By default everything goes into stream 0, but operations defined in different streams may execute concurrently.
-
-\pagebreak
-% TODO
-Real time systems, which rely extensively on machine learning tasks and data processing tasks, Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
-In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions \cite{JEON2021167}.
-Deep learning, inspired by the structure of the human brain, is composed of layers of numerous interconnected, identical nodes called neural networks.  
-Neural network models rely on mathematical operations between different neighboring layers to perform inference, essentially the prediction making or recognition process.
-The layers are represented as matrices, which then get multiplied and convoluted with one another and are used by specialized functions, called activation functions, to introduce non-linearity. 
-With very large neural networks with thousands or millions of nodes, the inference computation is repetitive and slow. 
-The capability to execute these repeptitive workloads concurrently across different dataset makes \acsp{GPU} fundamental to performance in tasks using complex neural networks.  
-Furthermore, \acsp{GPU} are necessary to process the data rate produced by high-bandwidth, high-frequency sensors used in autonomous driving. 
-The parallelism in \acs{GPU}s makes them the ideal platform over CPUs for deep learning and data processing tasks, tasks fundamental for autonomous driving systems.
-
-
-Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
-deadlines, which are subdivided into soft and hard-deadlines. 
-Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
-For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
-If these deadlines are not met, the safety of the passengers and the system is at risk. 
-On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
-In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
-Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
-
-
-
-
-
-\subsection{Necessesity of \acsp{GPU} in Autonomous Driving}
-
-\subsection{Autonomous Driving as a Real Time System}
-
-\section{Background}
-\subsection{Asynchronous Programming and Coroutines}
-
-Asynchronous programming is a method of programming a system to handle tasks concurrently instead of sequentially. 
-Typically used in conjunction with tasks that delay or have high wait-times, such as I/O heavy jobs, asynchronous programming reduces overall execution time by more efficiently using processing ressources. 
-For example, while waiting for I/O heavy input like sensor I/O, asynchronous code lets other tasks execute in the meantime, before returning when the data arrives.  
-For real-time systems, asynchronous programming additionally uses the intermittant execution model to enforce determinism. 
-By allowing the \acsp{GPU} to switch between concurrent tasks, hard deadlines can be immediately enforced without delay. 
-
-
-Coroutines, an implementation of asynchronous programming, uses suspendable functions to halt execution. 
-Suspendable functions are implemented by capturing the current context, know as the continuation, of the currently running thread and save the data to be run later \cite{Zheng2022LuisaRender}. 
-After being saved, a new process can take over execution, without interrupting or overwritting the state of the previous process. 
-Once the intermittant process or higher priority process has finished execution, the original task can continue executing by restoring the process context, which was previously saved. 
-Capturing the continuation of a function allows the resumption of the program to be strategically deferred. 
-
-%Here, the scheduled tasks are independent of the control flow, meaning the execution order of the subtasks
-
-
-
-
-
-\subsection{NVIDIA Tesla V100 Architecture}
-
-
- %\section{Motivation}
- %In autonomous driving and other real time system tasks, GPUs are essential for data processing and machine learning; however,  existing GPU scheduling techniques fail to meet the strict timing requirements of real-time applications.
- %GPU tasks are traditional queued and scheduled based on availabilty to optimize for high throughput applications like graphics rendering and offline machine learning training.
- %These tasks run to completion before switching tasks, meaning multiple tasks, such as the different modules in autonomous driving cannot efficiently share resources. 
- %Depending on the current workload for the GPU, execution times and latency can vary. 
- %These limitations make existing GPU scheduling mechanisms unsuitable for real-time applications like autonomous driving, where deadlines need to be met to ensure the safety of the system and passengers. 
-
-%Citation test~\parencite{latex}.
-
-%Acronyms must be added in \texttt{main.tex} and are referenced using macros. The first occurrence is automatically replaced with the long version of the acronym, while all subsequent usages use the abbreviation.
-
-%E.g. \texttt{\textbackslash ac\{TUM\}, \textbackslash ac\{TUM\}} $\Rightarrow$ \ac{TUM}, \ac{TUM}
-
-%For more details, see the documentation of the \texttt{acronym} package\footnote{\url{https://ctan.org/pkg/acronym}}.
-
-
-
-
-%Autonomous driving system
-
-%In order to react in time to input, autonomous driving systems need to efficiently process 
-
-%By removing human error and utilizing the faster reaction times of computers, autonomous driving can make transportation safer, more accessible, improve traffic efficiency, and reduce the number of traffic accidents.
-
-%For \ac{AVs}, driving tasks rely on complex computations to both understand the surrounding environment and to react to it in real-time.
-%Many of these computations are scheduled onto a \ac{\ac{GPU}}, to leverage the high degree of parallelism in the architecture. 
-%However, similar to \ac{CPU}s, the \ac{\ac{GPU}} can experience contention when multiple tasks compete for processing power. 
-%Unlike \ac{CPU}s, though, \ac{\ac{GPU}}s are less efficient at quickly switching between different tasks, which can lead to delays and unpredictability. 
-%If too many tasks get scheduled at once, the system's ability to meet critical deadlines can be comprimised, potentially leading to safety hazards. 
-%Using coroutines on persistant threads, \ac{\ac{GPU}} scheduling can be adapted to mitigate contention and ensure real-time system guarantees, enhancing the safety and reliability of \ac{AV}s.
-
-
-%These autonomous driving modules use vast amounts of data for their computation tasks, which are based in deep learning, a machine learning technique that demands vast amounts of computational resources.
-%Deep learning, inspired by the structure of the human brain, utilizes neural networks, with many layers of neural nodes, to automatically extract patterns, enabling decision-making tasks such as classification and object detection.  
-%In perception, deep learning models, particularily \acs{CNN}s identify objects, lane markings, pedestrians, vehicles, and traffic lights from the raw sensor data. 
-%Beyond perception, deep learning enhances localization by refining sensor fusion techniques, improving accuracy in determining the vehicles position. 
-%Furthermore, deep learning also supports planning and control, through reinforcement learning and predictive models to optimize trajectories. 
-%The real-time nature of these components are needed to reduce the latency, which requires these models to continously be updating their predictions as new sensor input arrives and the vehicle moves.
-%This places a high demand on the hardware, requiring high-performance accelerators to process vast amounts of data efficiently. 
-%To meet these requirements, these computations are scheduled on to a \ac{GPU}, which provides the high degree of parallelism required by the vast amount of data and computations within autonomous driving. 
-
-
-
-Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
-They use a concept of deadlines, which are subdivided into soft and hard-deadlines. 
-Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
-For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
-If these deadlines are not met, the safety of the passengers and the system is at risk. 
-On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
-In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
-Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  

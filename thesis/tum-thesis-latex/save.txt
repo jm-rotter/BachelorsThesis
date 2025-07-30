@@ -1,0 +1,107 @@
+
+\pagebreak
+% TODO
+Real time systems, which rely extensively on machine learning tasks and data processing tasks, Higher data processing performance is vital to autonomous systems, which rely extensively on machine learning tasks and sensor data processing. 
+In autonomous systems a multitude of modules require deep learning, a machine learning technique, to automatically extract patterns, such as computer vision, and make decisions \cite{JEON2021167}.
+Deep learning, inspired by the structure of the human brain, is composed of layers of numerous interconnected, identical nodes called neural networks.  
+Neural network models rely on mathematical operations between different neighboring layers to perform inference, essentially the prediction making or recognition process.
+The layers are represented as matrices, which then get multiplied and convoluted with one another and are used by specialized functions, called activation functions, to introduce non-linearity. 
+With very large neural networks with thousands or millions of nodes, the inference computation is repetitive and slow. 
+The capability to execute these repeptitive workloads concurrently across different dataset makes \acsp{GPU} fundamental to performance in tasks using complex neural networks.  
+Furthermore, \acsp{GPU} are necessary to process the data rate produced by high-bandwidth, high-frequency sensors used in autonomous driving. 
+The parallelism in \acs{GPU}s makes them the ideal platform over CPUs for deep learning and data processing tasks, tasks fundamental for autonomous driving systems.
+
+
+Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
+deadlines, which are subdivided into soft and hard-deadlines. 
+Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
+For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
+If these deadlines are not met, the safety of the passengers and the system is at risk. 
+On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
+In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
+Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
+
+
+
+
+
+\subsection{Necessesity of \acsp{GPU} in Autonomous Driving}
+
+\subsection{Autonomous Driving as a Real Time System}
+
+\section{Background}
+\subsection{Asynchronous Programming and Coroutines}
+
+Asynchronous programming is a method of programming a system to handle tasks concurrently instead of sequentially. 
+Typically used in conjunction with tasks that delay or have high wait-times, such as I/O heavy jobs, asynchronous programming reduces overall execution time by more efficiently using processing ressources. 
+For example, while waiting for I/O heavy input like sensor I/O, asynchronous code lets other tasks execute in the meantime, before returning when the data arrives.  
+For real-time systems, asynchronous programming additionally uses the intermittant execution model to enforce determinism. 
+By allowing the \acsp{GPU} to switch between concurrent tasks, hard deadlines can be immediately enforced without delay. 
+
+
+Coroutines, an implementation of asynchronous programming, uses suspendable functions to halt execution. 
+Suspendable functions are implemented by capturing the current context, know as the continuation, of the currently running thread and save the data to be run later \cite{Zheng2022LuisaRender}. 
+After being saved, a new process can take over execution, without interrupting or overwritting the state of the previous process. 
+Once the intermittant process or higher priority process has finished execution, the original task can continue executing by restoring the process context, which was previously saved. 
+Capturing the continuation of a function allows the resumption of the program to be strategically deferred. 
+
+%Here, the scheduled tasks are independent of the control flow, meaning the execution order of the subtasks
+
+
+
+
+
+\subsection{NVIDIA Tesla V100 Architecture}
+
+
+ %\section{Motivation}
+ %In autonomous driving and other real time system tasks, GPUs are essential for data processing and machine learning; however,  existing GPU scheduling techniques fail to meet the strict timing requirements of real-time applications.
+ %GPU tasks are traditional queued and scheduled based on availabilty to optimize for high throughput applications like graphics rendering and offline machine learning training.
+ %These tasks run to completion before switching tasks, meaning multiple tasks, such as the different modules in autonomous driving cannot efficiently share resources. 
+ %Depending on the current workload for the GPU, execution times and latency can vary. 
+ %These limitations make existing GPU scheduling mechanisms unsuitable for real-time applications like autonomous driving, where deadlines need to be met to ensure the safety of the system and passengers. 
+
+%Citation test~\parencite{latex}.
+
+%Acronyms must be added in \texttt{main.tex} and are referenced using macros. The first occurrence is automatically replaced with the long version of the acronym, while all subsequent usages use the abbreviation.
+
+%E.g. \texttt{\textbackslash ac\{TUM\}, \textbackslash ac\{TUM\}} $\Rightarrow$ \ac{TUM}, \ac{TUM}
+
+%For more details, see the documentation of the \texttt{acronym} package\footnote{\url{https://ctan.org/pkg/acronym}}.
+
+
+
+
+%Autonomous driving system
+
+%In order to react in time to input, autonomous driving systems need to efficiently process 
+
+%By removing human error and utilizing the faster reaction times of computers, autonomous driving can make transportation safer, more accessible, improve traffic efficiency, and reduce the number of traffic accidents.
+
+%For \ac{AVs}, driving tasks rely on complex computations to both understand the surrounding environment and to react to it in real-time.
+%Many of these computations are scheduled onto a \ac{\ac{GPU}}, to leverage the high degree of parallelism in the architecture. 
+%However, similar to \ac{CPU}s, the \ac{\ac{GPU}} can experience contention when multiple tasks compete for processing power. 
+%Unlike \ac{CPU}s, though, \ac{\ac{GPU}}s are less efficient at quickly switching between different tasks, which can lead to delays and unpredictability. 
+%If too many tasks get scheduled at once, the system's ability to meet critical deadlines can be comprimised, potentially leading to safety hazards. 
+%Using coroutines on persistant threads, \ac{\ac{GPU}} scheduling can be adapted to mitigate contention and ensure real-time system guarantees, enhancing the safety and reliability of \ac{AV}s.
+
+
+%These autonomous driving modules use vast amounts of data for their computation tasks, which are based in deep learning, a machine learning technique that demands vast amounts of computational resources.
+%Deep learning, inspired by the structure of the human brain, utilizes neural networks, with many layers of neural nodes, to automatically extract patterns, enabling decision-making tasks such as classification and object detection.  
+%In perception, deep learning models, particularily \acs{CNN}s identify objects, lane markings, pedestrians, vehicles, and traffic lights from the raw sensor data. 
+%Beyond perception, deep learning enhances localization by refining sensor fusion techniques, improving accuracy in determining the vehicles position. 
+%Furthermore, deep learning also supports planning and control, through reinforcement learning and predictive models to optimize trajectories. 
+%The real-time nature of these components are needed to reduce the latency, which requires these models to continously be updating their predictions as new sensor input arrives and the vehicle moves.
+%This places a high demand on the hardware, requiring high-performance accelerators to process vast amounts of data efficiently. 
+%To meet these requirements, these computations are scheduled on to a \ac{GPU}, which provides the high degree of parallelism required by the vast amount of data and computations within autonomous driving. 
+
+
+
+Real time systems, such as autonomous driving, are designed with strict timing constraints in mind, to ensure predictable and deterministic behavior \cite{10155700}. 
+They use a concept of deadlines, which are subdivided into soft and hard-deadlines. 
+Hard deadlines are critical and a failure leads to the systems failure or unsafe conditions. 
+For example, in autonomous driving, collision avoidance with another vehicle and brake activation are hard deadlines. 
+If these deadlines are not met, the safety of the passengers and the system is at risk. 
+On the other hand, soft deadlines are not critical and missing these deadlines degrades performance, but does not cause system failure. 
+In autonomous driving, this would show in route planning and navigation updates, where a delay would lead to suboptimal paths, but safety is not comprimised. 
+Real time systems need to be capable of effectively and efficiently switching from lower priority tasks, soft deadline tasks, to high priority, hard deadline tasks, to ensure the safety both for the passengers and nearby individuals.  
