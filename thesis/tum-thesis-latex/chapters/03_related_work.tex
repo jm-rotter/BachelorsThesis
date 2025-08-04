@@ -1,3 +1,23 @@
 % !TeX root = ../main.tex
 
 \chapter{Related Work}\label{chapter:Related Work}
+
+Real time GPU programming models have been explored across a variety of systems aiming to integrate predictable GPU execution into time-sensitive applications. 
+A number of systems have implemented frameworks designed to bridge the gap between the throughput oriented design and the deteminism required for real time tasks. 
+These are divided into two main subcategories of custom compiler driven applications and manual runtime controlled enviornments. 
+
+Compiler driven applications such as Mirage "is a compiler and runtime systems that automatically transforms LLM inference into a single megakernel". 
+Inference frameworks such as PyTorch or TensorFlow will launch multiple kernels, which incurs launch overhead for multiple kernels and added memory overhead between GPU caches, GPU memory, and host memory. 
+By combining these different kernels into a single megakernel, the intermediate state on chip memory is efficiently reused on on-chip memory. 
+This application effectively uses the concepts of persistent kernels to keep GPU tasks in memory instead of further kernel launches.  
+
+Further work includes Halide, a DSL and compiler for image processing and tensor computations, which enables autoscheduling for \acs{GPU}, which were still dependent on manual tuning by experts. 
+This system divides the compilation task from the scheduling tasks and through the use of a specific DSl automatically generates high-performance schedules for GPUs.
+Lastly, Luisa is a further framework designed to automatic JIT generation of GPU code for general purpose computing, which offers specific support for ray tracing, textue abstractions, and rasterization. 
+Other work extend Luisa, by implementing automatically generated coroutines, which run of persistent kernels, which allow for further fine-tuned automatic scheduling.   
+
+
+Prior to these frameworks, persistent kernels were implemented manually by developers seeking to improve GPU utilization and reduce kernel launch overhead to specific applications. 
+This technique has been used in applications such as ray tracing, physics simulation, and deep learning inference to maintain data locality and exploit fine grained parallelism. 
+While performant these techniques were highly labor intensive, error prone, and required deep knowledge of GPU hardware, memory heirarchies and scheduling behavior. 
+As a result thes 

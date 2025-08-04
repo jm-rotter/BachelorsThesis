@@ -1,0 +1,22 @@
+% !TeX root = ../main.tex
+
+\chapter{Persistent Threads}\label{chapter:Persistent Threads}
+
+Persistent GPU threads allow the hardware resources to be partitioned and reduce kernel execution and scheduling overhead and are fundamental for other applications seeking to enhance GPU scheduling.  
+While the persistent \acs{GPU} threads do not allow for asynchronous programming such as with coroutines, they still help to ensure runtime guarantees and support execution preemption.  
+Running persistent threads additionally allows the memory to be loaded during during execution allowing greater parallelism and reduced 
+
+
+
+
+To implement these persistent \acs{GPU} threads, I sought to find an open source implementation; however, I only found the LightKer implementation, used to profile persistent threads. 
+The LightKer implementation implemented Mailboxes to schedule 
+
+\begin{figure}[H]
+  \centering
+  \resizebox{1.0\linewidth}{!}{
+	  \input{figures/architecture.tex}
+  }
+  \caption{Persistent Thread Architecture}
+  \label{fig:architecture}
+\end{figure}
