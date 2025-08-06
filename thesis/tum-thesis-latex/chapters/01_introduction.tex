@@ -2,44 +2,49 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Introduction}\label{chapter:introduction}
-Autonomous driving systems place stringent demands on computational performance and predictability, yet \acsp{GPU}, needed to process sensor data and run machine learning tasks, can not natively support time critical demands. 
-The current CUDA \acs{GPU} hardware scheduler, functioning as a black box, maximimizes throughput rather than deterministic execution, leading to unpredictable latency from resource contention, which poses a serious safety hazard.
-The proprietary nature of the hardware scheduler makes it difficult to enforce timing guarantees, prioritize critical tasks, and suspend resident kernels.
-In the absence of preemption or fine grained resource control, high priority workloads can be delayed by longer running, lower priority kernels. 
-This thesis investigates GPU scheduling strategies tailored to real time systems, focusing on GPU coroutines and persistent threads as a mechanism to improve responsiveness, reduce latency variability, and ensure the timely execution of safety critical tasks in autonomous driving.
+Autonomous driving systems place stringent demands on computational performance, predictability and safety.
+These demands arise from the need to process vast amounts of sensor data and run complex perception and decision making algorithms in real time, while ensuring timely and deterministic responses to a dynamic environment.
+To meet the computational requirements of such systems, \acsp{GPU} have become essential due to their performance on machine learning workloads. 
+However, the current GPU programming and execution model is poorly suited to real time constraints. 
 
-Early autonomous driving systems used a distributed architecture to ensure the timing guarantees of individual modules \cite{6809196}.
-The distributed architecture processes individual driving tasks seperately in modules, dividing driving tasks into perception, localization, planning, and control, which together form the processing pipeline. 
-The stages of the pipeline enable the vehicle to interpret its surroundings, determine its position within them, make decisions, and execute corresponding actions. 
-In this architectural design, each module is mapped to an individual compute unit, resolving any resource contention issues between independent modules.
-This system design ensures that the load on the compute units is consistent and responsive to the individual modules.
-For example, the planning node only ever computes the next, most time critical, planning task. 
-In this manner, the distributed architecture allows for fine tuning the timing between modules to achieve low latency responses from the hardware. 
+Modern, CUDA capable GPUs, rely on a proprietary hardware scheduler that functions as a black box to the programmer.
+This scheduler is optimized for throughput rather than deterministic execution, which introduces unpredictable latency from resource contention between tasks.
+Critically, tasks with strict timing requirements may suffer delays if long running, lower priority kernels are already resident on the device. 
+The inability to preempt GPU kernels or to enforce strict task priorities makes the utilization of GPUs difficult for safety critical, real time workloads.  
+Particularily in the context of autonomous driving, the repercussions of latencies pose a serious safety concern. 
 
-Although the system safety was ensured by distributing numerous compute resources, this approach is wasteful and expensive, especially as recent hardware advances in GPUs allow massive cost reduction by centralizing modules onto one processing node.
-Developing independent processing nodes for each different task uses significantly more hardware then a singular processing node driving higher costs and complex interconnected networks. 
+Historically, early autonomous driving systems addressed the real time requirements using a distributed architecture.
+In this approach, major functional modules, such as perception, localization, planning, and control, were mapped to seperate compute units, which together formed a processing pipeline \cite{6809196}. 
+Each module could thus operate with predictable timing characteristics, avoiding contention with other modules. 
+In this manner, the distributed architecture allowed for fine tuning the timing between modules to achieve low latency responses from the hardware. 
+This modular architecture ensured responsiveness and real time guarantees at the expense of high hardware cost and increased system complexity.
+
+
+The rise of increasingly powerful GPUs has enabled a shift toward centralized computing in order to simplify the hardware and complexity while reducing costs. 
+In this centralized architecture, all core driving modules share a common compute node consisting of a CPU-GPU system. 
 Moving to a singular compute node allows savings in cost, design, and intermodule latency.
-The proposed compute node consists of a heterogenous system of both a \acs{CPU} and \acs{GPU}, where the \acs{CPU} manages the system and offloads processing and computing tasks to the \acs{GPU}.
-The centralizing of processing resources to a singular \acs{GPU} is supported by their extensive processing power and speed on machine learning tasks required by the autonomous driving system.
+This compute node uses the GPU for compute intensive workloads, while leaving the CPU free to orchestrate the scheduling and control of the system. 
 
-Implementing this new centralized system still requires the same real time guarantees in order to ensure the safety of the passengers and public.
-The GPU, explicitely, needs to meet real time deadlines, such as reaction time to enviornmental updates.
-As the GPU is simultaneously responsible for all processing tasks, too many simultaneous scheduled tasks can lead to hardware contention. 
-When the systems faces hardware contention, unoptimal execution orders can lead to intermodule or system latencies and variable execution times. 
-These variable execution times, dependent on the scheduled task queue, undermine the guarantees needed by the system.
-Real time systems ensure system safety under contention by preempting less critical tasks in favor of ensuring the timely execution of critical tasks. 
-Unlike \acsp{CPU}, which support preemption at both the OS and programming level, \acsp{GPU} do not natively support preemption, due to the specific programming model. 
+Despite the benefits afforded by a centralized architecture and the advances in hardware, the system still risks GPU oversubscription.
+As the GPU is simultaneously responsible for all processing tasks, too many simultaneous scheduled tasks can lead to delays in execution time. 
+Typical real time system solutions based on a \acs{CPU}, ensure system safety under contention by preempting non critical tasks. 
+Tasks requiring high responsiveness can thus be directly executed after preemption of the resident threads and processes.
+This preemption is supported at both the OS level as well as the programming level, which this thesis aims to abstract and implement for \acsp{GPU} in a real time autonomous driving system.
 
-Attempting to forgo the use of \acsp{GPU} in autonomous driving and solely relying on \acsp{CPU} fails, due to the lack of computational performance needed to meet the strict latency requirements of autonomous driving systems.
-The original distributed system design was necessary in part due to the vast amount of computations and processing required by the autonomous driving system.
-In particular, the core modules of an autonomous driving system each require complex neural nets in order to allow the vehicle to function autonomously. 
-The \acsp{GPU} themselves are designed for throughput on highly parallel loads, which perfectly scale to match the the machine learning tasks.
-This focus on throughput and parallelization requires a fundamentally different architecture that does natively support standard real time system algorithms. 
+To enable the GPU to support these real time features, the device scheduling has to be handled by the programmer instead of natively.
+Rather than relying on native kernel launches, this thesis explores GPU coroutines and persistent threads as mechanisms for enabling predictable, low latency execution. 
+Coroutines provide cooperative multitasking between GPU threads, allowing the system to make scheduling decisions otherwise restricted by the proprietary driver.
+This additional scheduling ability allows the system to implement custom schedulers that prioritize critical work. 
+Persistent threads, long lived threads that remain active throughout the lifetime of the system, are fundamental to the management of these coroutines. 
+Furthermore, persistent threads have the added benefit of reducing kernel launch overhead. 
 
-\acsp{GPU} are implemented on a batch system algorithm, where throughput is prioritized above all else, and do not support kernel preemption. 
-Unlike real time systems typically implemented on \acsp{CPU}, GPU kernels do not natively support interruption to allow higher priority tasks to execute \cite{taskparallelism}.
-The \acs{GPU} kernels are queued and scheduled based on availability and executed until completion without interruption, fully saturating the hardware until the kernel terminates.
-By prioritizing throughput over responsiveness and latency, the \acsp{GPU} may become contented between various different tasks, waiting for each of these tasks to complete before new tasks may be scheduled. 
-The host process which scheduled those tasks can additionally not kill the scheduled kernels through the driver natively, without terminating the host process. 
-Variable latencies are unacceptable in real time systems where strict execution deadlines must be preserved in order to react to the changing enviornment in time. 
-This paper implements a method to schedule tasks to the \acs{GPU} for real time systems and furthermore reduces kernel launch latency through the use of persistent \acs{GPU} threads.
+As part of this research, an attempt was made to directly integrate a coroutine based GPU scheduling system into an autonomous driving system. 
+However, the lack of documentation and time as well as the complexity of the existing framework proved to be a limitation. 
+As a result, this thesis pivoted to implementing a custom persistent thread scheduler on which coroutines can be implemented for real time systems.  
+This approach enables long running GPU threads to receive new tasks, yield between them, and implement task prioritization in software. 
+The software yielding emulates the desired preemption to improve responsiveness under load. 
+
+
+In summary, this thesis investigates real time GPU scheduling techniques for autonomous driving.
+By building a persistent thread architecture to support coroutine based task control, the goal is to reduce latency variability and enable timely execution of safety critical GPU workloads. 
+This thesis aims to bridge the gap between the throughput oriented design of modern GPUs and the strict timing guarantees demanded by real time autonomous systems.

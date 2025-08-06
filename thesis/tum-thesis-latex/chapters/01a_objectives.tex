@@ -5,7 +5,13 @@
 
 
 The initial objective of this thesis was to implement a real time scheduling solution into an existing open source autonomous driving project. 
-The open source driving project, Apollo\footnote{For more information, visit the GitHub repository: \url{https://github.com/ApolloAuto/apollo}}, is being developed by Baidu and currently uses a coroutine scheduler in combination with a real time OS for its \acs{CPU} tasks, but does not support the same features for its \acs{GPU} tasks.
+The open source driving project, Apollo\footnote{For more information, visit the GitHub repository: \url{https://github.com/ApolloAuto/apollo}}, is being developed by Baidu and currently supports a fully functional autonomous driving platform.
+The system consist of both a \acs{CPU} and \acs{GPU} on the hardware side, with the CPU offloading compute heavy machine learning tasks to the \acs{GPU}.
+The \acs{CPU} tasks run inside of CyberRT, built on a real time linux operating system, essential for maintaining real time deadlines. 
+CyberRT already supports CPU side coroutines as a means of ensuring predictable system behavior, but does not support any GPU side fine grained scheduling. 
+Instead of supporting the real time fine grained scheduling like the \acs{CPU}, the \acs{GPU} executes received tasks sequentially. 
+This project means to further ensure the safety of passengers by furthering the fine grained scheduling capabilities of this system 
+
 To improve the current Apollo \acs{GPU} scheduling, the real time \acs{GPU} scheduling solution LuisaCompute-Coroutine\footnote{For more information, visit the GitHub repository: \url{https://github.com/LuisaGroup/LuisaCompute-coroutine/tree/next}} was selected \cite{Zheng2022LuisaRender}.
 This project provides an "automic solution [to] flexibly schedule and split rendering tasks" by implementing \acs{GPU} coroutines into Luisa. 
 Luisa is a high-level GPU programming framework that facilitates the development of efficient and portable GPU code, making it well-suited for real-time applications like autonomous driving.

@@ -45,15 +45,21 @@ The mailboxes are constantly enqueuing and dequeuing new tasks throughout the ex
 
 \section{Implementation}
 
-GPU kernels are essentially device side functions launched by the host process, which execute with parameters and a logical grid of threads to be distributed across the across the \acsp{SM}.
+GPU kernels are essentially device side functions launched by the host process, which execute with parameters and a logical grid of threads to be distributed across the \acsp{SM}.
 In order to replicate both the parameterization and execution model without explicitely launching new kernels, the persistent threads must maintain a mechanism for storing function pointers and their associated arguments to assign work to idle compute resources dynamically.
 Similar to other persistent thread implementations, this project implements a task queue, that captures the full execution context required to execute the GPU code. 
 As shown in the Figure~\ref{fig:architecture}, the task queue is represented as an array of clipboards each encapsulating a function context.
 Beneath the task queue, Figure~\ref{fig:architecture} also depicts the staging area used for memory management. 
-These are implemented using an epoch based allocation strategy.
+The memory management is implemented using an epoch based allocation strategy.
 These memory buffers serve as a real-time memory management structure for GPU kernels, reducing the need for direct runtime memory allocation while enabling in-place memory reuse for tasks.
 
-Furthermore, GPU kernel launches specify the launch configuration of GPU threads executing the code and their physical placement in the architecture. 
+Based on the results in Figure~\ref{fig:singlethreadedgraph}, any sequential scheduling mechanism executing directly on the device would incur significantly performance penalties when compared to a CPU based approach.
+As a result, both the task queue and the associated memory buffers are managed from the host side.
+This includes deteriming the active epoch and assigning task indices within the corresponding memory or queue structures.
+The host is responsible for copying all required parameters into device memory and delegates only the  dequeuing and execution of tasks to the GPU.
+
+
+Furthermore, standard GPU kernel launches specify the thread configuration and grid layout of GPU threads executing the code and their physical placement in the architecture. 
 The GPU automatically decides the execution placement of the kernels from the Gigathread Engine during the launch of GPU code from the host. 
 As the persistent threads are already launched at program start, the configuration remains the same throughout the lifetime of the persistent thread. 
 Therefore these persistent threads can not support variable launch configurations at runtime without terminating the kernel and restarting a new kernel with different launch configurations.
@@ -106,7 +112,25 @@ Manually extending this method allows the user to manually allocate more memory 
 
 
 \subsection{Memory Model}
+
 In order to provide the incoming scheduled kernels a staging area for allocated memory, the implementation contains a running epoch memory model. 
+The memory model contains n epochs, with an input and output staging area for each respective epoch. 
+As input are copied into epochs, eventually the corresponding input memory buffer will overflow. 
+The host enqueuing functionality manages the current epoch and the current offset within that epoch, which allows the host to detect when the input buffer will lead to an overflow.  
+Once the buffer is saturated, the host proceeds to allocate further memory to the next epoch.
+After the device finishes executing the task and copies results to the corresponding epoch's result buffer, the host is notified and that memory is marked as free.
+After fully allocating the memory for an individual buffer, that buffer remains untouched by the scheduler until the scheduler loops around the entire buffer queue and reaches the same epoch again.
 
 
-\subsection{}
+The motivation for this epoch based strategy both asynchronously manages the execution of tasks as well as overhead reduction of continuously freeing and allocating new memory.
+As these persistent buffers remain allocated throughout the entirety of the kernel, there is no longer any overhead involved in gpu side memory allocation or freeing, as the memory is tied to the lifetime of the kernel and only internaly considered allocated or freed.  
+When the buffer queue loops and returning back, if the specific buffer parameters and memory size has been correctly set, potentially through profiling, the buffer will be free and can be reused.
+The buffer is only considered free if all tasks within the buffer are considered free, which removes any complicated GPU side memory allocation schemes.
+
+\subsection{Cuda Streams Optimization}
+
+To fully leverage the GPU’s memory transfer capabilities, input and output transfers are performed in separate, overlapping CUDA streams.
+As previously noted, the GPU features distinct engines for \acs{H2D} and \acs{D2H} transfers, which can operate concurrently. 
+By assigning input transfers to a dedicated H2D stream and output transfers to a separate D2H stream, this implementation avoids intra-stream dependencies and enables parallel data movement in both directions.
+
+
