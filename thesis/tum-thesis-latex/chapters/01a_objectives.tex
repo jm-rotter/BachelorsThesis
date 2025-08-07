@@ -4,25 +4,26 @@
 \chapter{Objectives}\label{chapter:Objectives}
 
 
-The initial objective of this thesis was to implement a real time scheduling solution into an existing open source autonomous driving project. 
-The open source driving project, Apollo\footnote{For more information, visit the GitHub repository: \url{https://github.com/ApolloAuto/apollo}}, is being developed by Baidu and currently supports a fully functional autonomous driving platform.
-The system consist of both a \acs{CPU} and \acs{GPU} on the hardware side, with the CPU offloading compute heavy machine learning tasks to the \acs{GPU}.
-The \acs{CPU} tasks run inside of CyberRT, built on a real time linux operating system, essential for maintaining real time deadlines. 
-CyberRT already supports CPU side coroutines as a means of ensuring predictable system behavior, but does not support any GPU side fine grained scheduling. 
-Instead of supporting the real time fine grained scheduling like the \acs{CPU}, the \acs{GPU} executes received tasks sequentially. 
-This project means to further ensure the safety of passengers by furthering the fine grained scheduling capabilities of this system 
+The primary objective of this thesis is to explore GPU scheduling techniques that enable predictable, low latency execution for real time autonomous systems.  
+In particular, the aim is to address the limitions of current GPU execution models, which prioritize throughput at the expense of timing guarantees, by investigating alternative scheduling strategies suitable for safety critical environments. 
+Furthermore, this thesis aims to explore the GPU hardware architecture and CUDA programming model in order to design an efficient optimized scheduling strategy. 
 
-To improve the current Apollo \acs{GPU} scheduling, the real time \acs{GPU} scheduling solution LuisaCompute-Coroutine\footnote{For more information, visit the GitHub repository: \url{https://github.com/LuisaGroup/LuisaCompute-coroutine/tree/next}} was selected \cite{Zheng2022LuisaRender}.
-This project provides an "automic solution [to] flexibly schedule and split rendering tasks" by implementing \acs{GPU} coroutines into Luisa. 
-Luisa is a high-level GPU programming framework that facilitates the development of efficient and portable GPU code, making it well-suited for real-time applications like autonomous driving.
-Integrating LuisaCompute’s coroutine based GPU scheduler into Apollo was expected to enable more flexible and efficient GPU task management, thereby improving the reliability and safety of the real time autonomous driving platform.
+The initial objective of this work was to integrate an existing coroutine based GPU scheduler into a autonomous driving framework.
+This integration was intended to evaluate the viability of fine grained GPU scheduling within a complex, real time system. 
+Additionally, this work further sought to evaluate the scheduling latencies in a coroutine based implementation, from which specific timing guarantees may be derived. 
+Ultimately, given the steep learning curve of both the GPU coroutine framework and the autonomous driving platform, and my limited prior experience with GPU programming and compiler theory, the integration proved more difficult than expected and required a narrowing of scope.
+As a result, this original objective was reconsidered.
 
-However, due to practical constraints, including complex integration dependencies between Apollo and LuisaCompute, the inherent complexity of both frameworks, limited documentation and support, and time constraints, the original objective proved infeasible within the scope of this thesis.
-Consequently, the focus shifted to designing and implementing a custom persistent thread scheduler using native CUDA. 
-This approach enabled a hands-on exploration of how persistent GPU threads operate, how they can be scheduled, and what challenges arise when managing long-lived GPU execution contexts manually. 
-The revised objective became not only to prototype such a scheduler but to study its behavior, evaluate its limitations, and compare its implications with coroutine-based approaches like those in Luisa Compute.
-This shift allowed for a deeper understanding of the underlying GPU execution model and provided a foundation for future work toward integrating persistent thread models into complex frameworks such as Apollo.
 
+The thesis therefore shifted focus to a more foundational and controlled apporach. 
+Instead of embedding GPU scheduling into an existing system, this work focuses on designing and implementing a custom persistent thread scheduler using native CUDA. 
+This scheduler serves as a minimal proof of concept foundation for enabling persistent GPU threads to receive tasks, yield between them, and emulate prioritization.
+By building this system, it becomes possible to explore how real time behaviors can be emulated in software, to study the limitations of the CUDA execution model, and to understand teh design trade-offs involved in managing GPU concurrency manually.  
+
+This revised objective emphasizes both the practical and conceptual aspects of real time GPU scheduling. 
+Practically, it provides a working framework for testing scheduling behavior under load. 
+Conceptually, it offers insights into the GPU architecture and CUDA programming model in maximizing the hardware capabilities and utilization.
+The findings of this work aim to inform future efforts to integrate persistent thread or coroutine based scheduling into real world autonomous driving systems. 
 
 
 

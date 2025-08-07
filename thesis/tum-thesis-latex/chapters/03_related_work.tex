@@ -2,22 +2,62 @@
 
 \chapter{Related Work}\label{chapter:Related Work}
 
-Real time GPU programming models have been explored across a variety of systems aiming to integrate predictable GPU execution into time-sensitive applications. 
-A number of systems have implemented frameworks designed to bridge the gap between the throughput oriented design and the deteminism required for real time tasks. 
-These are divided into two main subcategories of custom compiler driven applications and manual runtime controlled enviornments. 
 
-Compiler driven applications such as Mirage "is a compiler and runtime systems that automatically transforms LLM inference into a single megakernel". 
-Inference frameworks such as PyTorch or TensorFlow will launch multiple kernels, which incurs launch overhead for multiple kernels and added memory overhead between GPU caches, GPU memory, and host memory. 
-By combining these different kernels into a single megakernel, the intermediate state on chip memory is efficiently reused on on-chip memory. 
-This application effectively uses the concepts of persistent kernels to keep GPU tasks in memory instead of further kernel launches.  
+Real time GPU programming models are a result of more autonomous systems and the increased hardware performance of GPUs in those applications.
+Programmers want to ensure these systems are predictabe.
+These applications, ranging from robotics to scientific computing, use GPU programming models to reduce kernel overhead while improving resource utilization and predictability.
+Although GPUs offer high throughput and timely execution important for these domains, they require non native programming models to ensure predictable execution models.
+Researchers have proposed various solutions to adapt GPU execution models to these real time constraints. 
+The solutions fall into three categories: compiler driven frameworks, runtime scheduling frameworks, and manual implementations.
 
-Further work includes Halide, a DSL and compiler for image processing and tensor computations, which enables autoscheduling for \acs{GPU}, which were still dependent on manual tuning by experts. 
-This system divides the compilation task from the scheduling tasks and through the use of a specific DSl automatically generates high-performance schedules for GPUs.
-Lastly, Luisa is a further framework designed to automatic JIT generation of GPU code for general purpose computing, which offers specific support for ray tracing, textue abstractions, and rasterization. 
-Other work extend Luisa, by implementing automatically generated coroutines, which run of persistent kernels, which allow for further fine-tuned automatic scheduling.   
+\section{Compiler Driven Frameworks}
 
+Compiler driven frameworks focus on optimizing GPU workloads through automated code generation. 
+These systems are based on persistent threads, which reduce kernel launch overhead, maximize on chip memory reuse. 
+The compilers generate code using a specific \acs{DSL}, which abstracts the low level device code.
+The compiler then parses the \acs{DSL} into an abstract syntax tree. 
+The abstract syntax tree allows the compiler to transform and optimize the code into an intermediate representation, which is transformed into device code \acs{JIT}. 
 
-Prior to these frameworks, persistent kernels were implemented manually by developers seeking to improve GPU utilization and reduce kernel launch overhead to specific applications. 
-This technique has been used in applications such as ray tracing, physics simulation, and deep learning inference to maintain data locality and exploit fine grained parallelism. 
-While performant these techniques were highly labor intensive, error prone, and required deep knowledge of GPU hardware, memory heirarchies and scheduling behavior. 
-As a result thes 
+One such project, \textit{Mirage} implements these ideas to improve large language model inference, by merging kernels into a singular megakernel. 
+The singular megakernel is essentially a persistent kernel that eliminates extra memory copies between kernels, lowers kernel launch overhead, and retains memory on chip.
+Similarily, \textit{Halide} provides a framework to automatically make scheduling decisions for users, by decoupling the algorithm from the execution schedule. 
+The execution schedule is then determined through compiler optimizations through autoschedulers that requires minimal manual tuning.
+Lastly, \textit{Luisa} is structured similar to the other projects, but offers performance benefits specifically for  graphics and simulation workloads like ray tracing and rasterization. 
+Luisa has support for acceleration strucutures, ray traversal APIs, and shader abstraction, allowing developers to high level rendering code while retaining low level performance. 
+
+Built on top of Luisa's execution model, \textit{LuisaCompute-Coroutines} extends the framework to support coroutines built on persistent threads. 
+Coroutines are expressed simply within the \acs{DSL} using suspension points. 
+These suspention points allow the device to preserve context and yield, allowing for fine grained scheduling. 
+In particular this approach is efficient and leverages itself for real time systems due to the asynchronous coroutine programming approach. 
+
+\section{Runtime Scheduling Frameworks}
+
+Beyond compiler based transformations, runtime based frameworks provide an alternative approach by enabling real time GPU scheduling.
+For example, \textit{RT-GPU}, a runtime system, provides deadline aware scheduling of GPU workloads by partitioning GPU resources. 
+Using a reservation based model, RT-GPU enables fine grained control over scheduling to ensure the task deadlines. 
+Additionally, \textit{ROSGM} is a further GPU management framework designed specificially for ROS 2 robotics systems.  
+The ROSGM system interposes a layer to intercept the CUDA API calls to insert metadata to each GPU task.
+The API interception allows for custom deadlines and priorities that manage how GPU tasks are queued and issued to the device. 
+
+\section{Manual Persistent Kernels}
+
+In addition to the other models, manual implementations support fine grained scheduling control specifically tuned to a single application. 
+For example, in scientific computing, simulators like \textit{HOOMD-blue} manually fuse multiple computation steps into a single persistent kernel.
+Furthermore, Jetson implemented GPU persistent threads to support their real time RedHawk Linux system.
+Unfortunately, this GPU persistent thread implementation is not open source. 
+These implementations offer low-level control and high efficiency, but demand significant expertise in GPU programming.
+
+\section{Platform Integration: GPU Scheduling in Apollo}
+
+This thesis aims to integrate GPU real time scheduling into the open source autonomous driving platform Apollo. 
+Apollo, developed by Baidu, relies on CyberRT, a real time platform to coordinate CPU task execution. 
+CyberRT manages the different driving modules within the system and coordinates cooperative asynchronous scheduling using coroutines. 
+The coroutine capability; however, does not extend to GPUs, which does not ensure their predictability. 
+
+Starting this thesis, I initially explored integrating LuisaCompute-Coroutines into Apollo, to provide the system with GPU coroutines to pair with the existing CyberRT CPU coroutines.
+Similar to the CPU coroutines, these GPU coroutines were intended to deliver the system predictable execution latencies, with the added benefits GPU persistent thread offer. 
+However, due to several integration barriers, including incompatible build systems, sparse documentation, and time constraints, it became clear that the integrating this system into Apollo would not be feasible within the scope of this thesis.
+
+Consequently, this work's focus shifted to a manual implementation of a GPU persistent thread scheduler using CUDA. 
+This change allowed me the opportunity to study the low level aspects of GPU scheduling from both an architectural and programming perspective.
+While lacking the automation and abstraction of a compiler driven implementation, this manual approach allows for finer application specific implementations.
