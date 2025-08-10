@@ -1,11 +1,10 @@
 #!/bin/bash
 
 WATCH_DIR="${1:-.}"
-SLEEP_TIME=2  # seconds between checks
+SLEEP_TIME=2  
 
 declare -A mtimes
 
-# Initialize mtimes for all .tex files
 for f in $(find "$WATCH_DIR" -type f -name "*.tex"); do
   mtimes["$f"]=$(stat -c %Y "$f")
 done
