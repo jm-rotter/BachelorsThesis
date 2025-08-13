@@ -1,0 +1,20 @@
+\begin{tikzpicture}
+  \begin{axis}[
+    ybar,
+    bar width=12pt,
+    width=8cm,
+    height=6cm,
+    ymin=150,
+    ymax=400,
+    ylabel={Time (ms)},
+    symbolic x coords={{Persistent}, {Baseline}},
+    xtick=data,
+    nodes near coords,
+    nodes near coords align={vertical},
+    enlarge x limits=0.50,   % tighter horizontal spacing
+    ymajorgrids=true,        % light grid lines for readability
+    grid style=dashed,
+  ]
+\addplot coordinates {(Persistent, 178.035) (Baseline, 350.349)};
+  \end{axis}
+\end{tikzpicture}

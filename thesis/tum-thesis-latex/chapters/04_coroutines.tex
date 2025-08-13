@@ -9,7 +9,7 @@ This capability would allow the scheduler to better enforce bounded response lat
 Coroutines are a form of asynchronous programming that enable cooperative multitasking between functions.
 Unlike thread- or process-level context switches, which involve greater overhead, coroutines maintain only a function-level context, allowing fast and lightweight task switching.
 This makes them particularly useful for enabling runtime kernel task switching on the GPU. 
-Here execution of a kernel can be suspended to allow another kernel to run, and then later resumed without blocking other work.
+Here, execution of a kernel can be suspended to allow another kernel to run, and then later resumed without blocking other work.
 
 A coroutine suspends execution by capturing its current context, known as the continuation, which contains the execution state needed for later resumption \cite{Zheng2022LuisaRender}.
 Once suspended, another task can execute without overwriting or disrupting the saved kernel state.
@@ -19,18 +19,22 @@ This ability to strategically pause and resume execution makes coroutines well s
 
 \section{CPU Coroutines}
 
-Unlike threads or processes, which require greater context switching, the use of coroutines allows for simple, faster context switching between different functions. 
-On x86 architecture, the CPU calling convention for functions pushes the next instruction address to the stack and jumps to the instruction address of the function call.
-The new functions accesses the variables through the stack and registers. 
-In this convention, available registers are divided into volatile, caller saved registers and non volatile, callee saved registers. 
-If manipulated, the callee saved registers must be restored before the function terminates, while the caller saved registers may be manipulated. 
-
-After the function call executes the return instruction, the next instruction address is read off of the stack and executed.
-For a function to pause execution, the minimum context is these callee saved registers, as these are the registers that must be reproduced. 
-Further additional context can manually be pushed to the stack, which becomes restored when the next coroutine terminates. 
+Unlike threads or processes, which require relatively expensive context switching, coroutines enable simpler and faster context switches between functions.
+This efficiency arises from the way function calls are handled at the CPU level, particularly on x86 architecture.
+To switch a function, the GPU merely needs to save its state and then jump to the new function instruction address. 
 
 
-Consider the following CPU coroutine code taken from Apollo. 
+
+In x86 calling convention, when a function is called, the CPU pushes the return address, the address of the next instruction to execute, onto the stack and jumps to the called function’s instruction address.
+The called function accesses its variables via the stack and registers.
+Registers are categorized into two groups: volatile, caller saved and non-volatile, callee saved.
+Volatile registers may be freely modified by the callee without restoration, whereas callee saved registers must be preserved and restored before the function returns.
+
+When the function executes a return instruction, the CPU pops the return address off the stack and continues execution from that point.
+To yield a function, the minimum context that must be saved and restored includes the callee saved registers, since these are guaranteed to be preserved across function calls.
+Additional state, such as local variables or other registers, can be manually saved to the stack to be restored later when the coroutine resumes.
+
+Consider the following CPU coroutine code taken from the Apollo project. 
 
 \begin{lstlisting}[language=x86asm,caption={CPU Coroutine}, label={lst:coro}]
 ctx_swap:
@@ -54,32 +58,55 @@ ctx_swap:
     ret
 \end{lstlisting}
 
+The CPU coroutine implementation uses the context switching function, ctx\_swap, which swaps the continuations by saving the current execution context and loading a new one.
+As previously stated, standard calling conventions uses registers to pass the function parameters to the function.
+In this case, this function accepts two parameters, \%rdi and \%rsp, each representing an addresses used to store and retrieve the coroutine continuations.
+\%rdi is used by the first half of the function to store the current execution state, while \%rsi is used in the second half to restore and load the coroutine continuation.
 
-This function ctx\_swap, context swap, receives two parameters, \%rdi and \%rsp, both addresses to store and retrieve the coroutine continuations. 
-The first section of ctx\_swap, until like 10, saves the current continuation, by pushing all the callee saved registers onto the current stack.
-The stack address of the current continuation, \%rsp, is then saved in the register \%rdi, which will be saved by the function for switching the context back to the original context.
-The second half of the context switching function loads the new context from the stack. 
-First, the stack pointer is updated with the new coroutine's continuation stack pointer. 
-Using this new stack location, all the callee saved registers are loaded in the reverse order to the context saved order and loaded into the registers for the new function. 
-In comparison to the context switching used by either processes or threads, this executes very quickly.
+The first section of ctx\_swap, up to line 10, is responsible for saving the current continuation.
+This is achieved by pushing all callee saved registers onto the current stack, preserving the processor state. 
+To resume the continuation later, the memory location of the continuation is stored in \%rdi, by copying the current stack pointer into the register.
+This value allows the function to restore the original context during subsequent switches.
+
+The second section loads the new coroutine context, by reversing the first sections actions to saving the state.
+The stack pointer is updated with the new continuation, such that all the saved registers can be retrieved and execution can resume. 
+Once within the correct stack frame, all callee saved registers are restored in the reverse order of their saving, effectively loading the processor registers with the new coroutine’s state. 
+The callee saved register states are thus preserved across coroutine function calls, with further saved variables easily accessible as local variables on the same stack frame. 
+
+In comparison to traditional context switches involving processes or threads, coroutine context switching via ctx\_swap operates with significantly lower overhead, resulting in a faster execution.
+Furthermore, these continuations benefit from the user explicitely defining the suspension points.
+User defined suspension points typically involve much smaller contexts than preemption points, as they align more closely with convenient locations within the executing program. 
+Consequently, coroutine contexts can often be kept minimal by leveraging only these carefully chosen points that require smaller saved states.
 
 \section{GPU Coroutines}
 
 In contrast to CPU coroutines, the GPU coroutines are more complex due to the large number of concurrent threads and concurrent warps that are executing and the specifics of GPU programming, especially in regards to the stack management.
-GPUs launch kernels that can not be interrupted or yield their resources through the kernel's lifetime.
+GPUs launch kernels that can not be interrupted by the system of programmer throughout the duration of its lifetime.
 The kernel function will saturate the number of warps and threads that were allocated to it until termination.
 After each kernel terminates the state afterwards is not preserved for the next incoming kernel. 
-Furthermore, unlike \acs{CPU} function calls where the instruction pointer is pushed onto the stack and the program then jumps to the new function, \acsp{GPU} save stack pressure by aggressively inlining function calls. 
-The advantage of inlining function calls is that there is no overhead when beginning a new function as that function code is already readily available. 
-Unfortunately for tasks dependent on deep call stacks such as recursion, this leads to an exponentially large instruction memory. 
-The underlying PTX code allows for recursion using the \lstinline[language=cuda]`nvcc -rdc=true` flag.
+Given these restrictions, the kernel must manually yeild execution using a user space sheduler. 
 
+\subsection{Inlining}
+Attempting to implement the CPU style coroutines using the ctx\_swap function does not work, given that the GPU handles function calls differently than the GPU. 
+\acs{CPU} function calls store the call stack within the stack, by pushing instruction pointers that can be popped with ret.
+The GPU does not use these, but instead saves stack pressure by aggressively inlining function calls. 
+Inlining function calls allows the GPU to reduce overhead when beginning a new function as that function code is already readily available and removes the need for a cpu style stack frame. 
 
+In particular, GPUs strongly optimize away from call stacks and provide only minimal support for them. 
+Originally, CUDA did not allow recursive functions and only with around CUDA 5.0 did they support them. 
+This support has to be manually implemented using the nvcc  flag, lstinline[language=cuda]`-rdc=true`.
+This recursion comes with limitations of restricted stack size and added performance overhead. 
+Attempting to implement deep call stacks leads to exponentially large instruction
+Unfortunately for tasks dependent on deep call stacks such as recursion, this leads to exponentially large instruction memory. 
 
-Due to the management of call stacks and batch execution of kernels on \acsp{GPU}, the \acs{GPU} requires a persistent kernel implementation with a manual implementation of coroutine state in order to save and resume their continuation. 
-Due to the nature of kernels executing until completion, the \acs{GPU} coroutine scheduler needs to be based on persistent threads, which schedule coroutines onto their threads. 
+\subsection{Persistent Threads to support Coroutines}
+
+Given that call stacks are not effectively or efficiently supported in CUDA, the GPU needs to provide a user level scheduling mechanism to control the execution decisions. 
+Due to the nature of kernels executing until completion, the \acs{GPU} coroutine scheduler needs to be based on a persistent kernel, which can schedule coroutines.
 These coroutines themselves need to have suspension points to manually give control back to the scheduler in order to execute the next task. 
 Saving every register value for every thread across every coroutine is to computationally expensive, so the coroutine contexts need to be managed locally and saved in global memory to free up limited \acs{SM} resources for new tasks. 
+
+\subsection{LuisaCompute-Coroutine}
 
 The implementation developed in LuisaCompute-Coroutine enables GPU coroutines by providing a coroutine based API that acts as a \acs{JIT} compiler for generating GPU kernels at runtime. 
 LuisaCompute offers a DSL embedded in C++, allowing programmers to explicitly define coroutine suspension points using standard C++20 coroutine syntax, such as co\_await. 
