@@ -16,8 +16,7 @@
 //For simplity width/height are a multiple of the block size
 __global__ void matmul_kernel(const Matrix mat1, const Matrix mat2, Matrix res_mat) {
 
-	for(int j = 0; j < 100; j++){
-
+	//for(int j = 0; j < 50000; j++) {
 		float value = 0;
 
 		int row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -26,7 +25,7 @@ __global__ void matmul_kernel(const Matrix mat1, const Matrix mat2, Matrix res_m
 			value += mat1.elements[row * mat1.width + i] * mat2.elements[i * mat2.width + col];
 		}
 		res_mat.elements[row * res_mat.width + col] = value;
-	}
+	//}
 
 	// Simulated workload on extra memory
 	// Each thread iterates through the buffer in strides
