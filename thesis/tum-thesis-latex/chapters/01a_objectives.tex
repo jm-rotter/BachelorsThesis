@@ -4,41 +4,53 @@
 
 \section{Objectives and Contributions}
 
-The thesis objective was to implement 
+
+\subsection{Original Objective}
+
+The original objective of this thesis was to integrate an existing coroutine based GPU scheduling framework into an autonomous driving system. 
+This integration aimed to evaluate the feasability of fine grained GPU scheduling within a complex, real time environment. 
+Furthermore, by measuring scheduling latencies in the system, it would be possible to derive and refine strict timing guarantees.
+
+\subsection{Challenges and Scope Adjustment}
+
+Direct implementation of the coroutine framework proved infeasible within the available time frame. 
+The system was originally designed for graphics rendering, relied on a complex compiler based architecture with little documentation, and required a separate build process. 
+Combined with my limited prior experience in GPU programming and compiler theory, these factors made integration within the timeline challenging. 
+
+To simplify the problem, the focus shifted from coroutines to the underlying execution model, persistent threads.
+No suitable open source implementation was found that could be directly integrated into an autonomous driving system. 
+Instead, a minimal, open source, custom persistent thread scheduler measuring overheads was found from which parts were taken to build a fully functional system.
+This new scheduler serves as a proof of concept foundation which provides long running GPU kernels to receive and execute tasks efficiently on which coroutines can later be implemented for real time systems.
+Furthermore it provides the framework on which GPU coroutines can yield and enforce prioritization between tasks, allowing exploration of how real time behaviors can be approximated within the constraints of the CUDA execution model.
 
 
+\subsection{Contributions}
 
-As part of this research, an attempt was made to directly integrate a coroutine based GPU scheduling system into an autonomous driving system. 
-However, the lack of documentation and time as well as the complexity of the existing framework proved to be a limitation. 
-As a result, this thesis pivoted to implementing a custom persistent thread scheduler on which coroutines can be implemented for real time systems.  
-This approach enables long running GPU threads to receive new tasks, yield between them, and implement task prioritization in software. 
-The software yielding emulates the desired preemption to improve responsiveness under load. 
+This thesis designs and implements a number of persistent thread components to enable the efficient execution of GPU code within persistent threads. 
 
-The primary objective of this thesis is to explore GPU scheduling techniques that enable predictable, low latency execution for real time autonomous systems.  
-In particular, the aim is to address the limitions of current GPU execution models, which prioritize throughput at the expense of timing guarantees, by investigating alternative scheduling strategies suitable for safety critical environments. 
-Furthermore, this thesis aims to explore the GPU hardware architecture and CUDA programming model in order to design an efficient optimized scheduling strategy. 
+\subsubsection{Task Management System}
 
-The initial objective of this work was to integrate an existing coroutine based GPU scheduler into a autonomous driving framework.
-This integration was intended to evaluate the viability of fine grained GPU scheduling within a complex, real time system. 
-Additionally, this work further sought to evaluate the scheduling latencies in a coroutine based implementation, from which specific timing guarantees may be derived. 
-Ultimately, given the steep learning curve of both the GPU coroutine framework and the autonomous driving platform, and my limited prior experience with GPU programming and compiler theory, the integration proved more difficult than expected and required a narrowing of scope.
-As a result, this original objective was reconsidered.
+An execution management system was developed to allow tasks to be queued and executed independently of resident executing kernels.
+This system captures the full execution context of functions, enabling persistent threads to retrieve, schedule, and execute tasks without requiring new kernel launches.
+
+\subsubsection{Memory Management System}
+The execution context for each task includes its associated memory allocations.
+To reduce the overhead of repeated allocations and deallocations, memory is mapped into a running epoch buffer of preallocated memory assigned before the launch of the persistent threads. 
+Tasks then operate within this preassigned memory region, eliminating the latency costs of frequent device memory management operations. 
+This system further provides a logical partition of input and output buffers in order to reduce data interdependencies.
 
 
-The thesis therefore shifted focus to a more foundational and controlled apporach. 
-Instead of embedding GPU scheduling into an existing system, this work focuses on designing and implementing a custom persistent thread scheduler using native CUDA. 
-This scheduler serves as a minimal proof of concept foundation for enabling persistent GPU threads to receive tasks, yield between them, and emulate prioritization.
-By building this system, it becomes possible to explore how real time behaviors can be emulated in software, to study the limitations of the CUDA execution model, and to understand teh design trade-offs involved in managing GPU concurrency manually.  
+\subsubsection{Concurrent Memory and Execution models}
+To support concurrent memory transfers between the host and device, as well as simultaneous kernel execution, the system leverages CUDA stream manipulation.
+This reduces interdependencies between data transfers and execution tasks, enabling higher overlap and better utilization of GPU resources.
 
-This revised objective emphasizes both the practical and conceptual aspects of real time GPU scheduling. 
-Practically, it provides a working framework for testing scheduling behavior under load. 
-Conceptually, it offers insights into the GPU architecture and CUDA programming model in maximizing the hardware capabilities and utilization.
-The findings of this work aim to inform future efforts to integrate persistent thread or coroutine based scheduling into real world autonomous driving systems. 
+\subsubsection{GPU Task Coordination and Synchronization}
+
+The scheduler enables multiple thread blocks to execute distinct tasks concurrently, ensuring that no two blocks perform the same task simultaneously 
+Furthermore, this system allows the host to efficiently schedule and queue tasks to any available thread block, maintaining high utilization of the GPU. 
+By enforcing exclusive task execution, the mechanism prevents race conditions and ensures correctness across all kernels.
 
 
-	
-In summary, this thesis investigates real time GPU scheduling techniques for autonomous driving.
-By building a persistent thread architecture to support coroutine based task control, the goal is to reduce latency variability and enable timely execution of safety critical GPU workloads. 
-This thesis aims to bridge the gap between the throughput oriented design of modern GPUs and the strict timing guarantees demanded by real time autonomous systems.
 
 \section{Thesis Outline}
+% TODO
