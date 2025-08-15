@@ -1,8 +1,18 @@
 % !TeX root = ../main.tex
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
-\chapter{Objectives}\label{chapter:Objectives}
 
+\section{Objectives and Contributions}
+
+The thesis objective was to implement 
+
+
+
+As part of this research, an attempt was made to directly integrate a coroutine based GPU scheduling system into an autonomous driving system. 
+However, the lack of documentation and time as well as the complexity of the existing framework proved to be a limitation. 
+As a result, this thesis pivoted to implementing a custom persistent thread scheduler on which coroutines can be implemented for real time systems.  
+This approach enables long running GPU threads to receive new tasks, yield between them, and implement task prioritization in software. 
+The software yielding emulates the desired preemption to improve responsiveness under load. 
 
 The primary objective of this thesis is to explore GPU scheduling techniques that enable predictable, low latency execution for real time autonomous systems.  
 In particular, the aim is to address the limitions of current GPU execution models, which prioritize throughput at the expense of timing guarantees, by investigating alternative scheduling strategies suitable for safety critical environments. 
@@ -26,7 +36,9 @@ Conceptually, it offers insights into the GPU architecture and CUDA programming 
 The findings of this work aim to inform future efforts to integrate persistent thread or coroutine based scheduling into real world autonomous driving systems. 
 
 
-
-
-
 	
+In summary, this thesis investigates real time GPU scheduling techniques for autonomous driving.
+By building a persistent thread architecture to support coroutine based task control, the goal is to reduce latency variability and enable timely execution of safety critical GPU workloads. 
+This thesis aims to bridge the gap between the throughput oriented design of modern GPUs and the strict timing guarantees demanded by real time autonomous systems.
+
+\section{Thesis Outline}
