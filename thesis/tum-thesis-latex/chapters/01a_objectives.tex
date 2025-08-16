@@ -15,41 +15,44 @@ Furthermore, by measuring scheduling latencies in the system, it would be possib
 
 Direct implementation of the coroutine framework proved infeasible within the available time frame. 
 The system was originally designed for graphics rendering, relied on a complex compiler based architecture with little documentation, and required a separate build process. 
-Combined with my limited prior experience in GPU programming and compiler theory, these factors made integration within the timeline challenging. 
+Combined with limited prior experience in GPU programming and compiler theory, these factors made integration within the timeline challenging. 
 
 To simplify the problem, the focus shifted from coroutines to the underlying execution model, persistent threads.
 No suitable open source implementation was found that could be directly integrated into an autonomous driving system. 
-Instead, a minimal, open source, custom persistent thread scheduler measuring overheads was found from which parts were taken to build a fully functional system.
-This new scheduler serves as a proof of concept foundation which provides long running GPU kernels to receive and execute tasks efficiently on which coroutines can later be implemented for real time systems.
-Furthermore it provides the framework on which GPU coroutines can yield and enforce prioritization between tasks, allowing exploration of how real time behaviors can be approximated within the constraints of the CUDA execution model.
+Instead, a minimal, open source, custom persistent thread scheduler, LightKernel was found and extended to be suitable for real time scheduling. 
+The implementation originally only measuring scheduling overheads from kernel launches, but provided a foundation to implement fully functional persistent threads. 
+This new scheduler serves as a proof of concept foundation which implements long running GPU kernels to receive and execute tasks efficiently.
+Furthermore it provides the framework on which GPU coroutines can be implemented to enable suspension and prioritization between tasks, allowing exploration of how real time behaviors can be approximated within the constraints of the CUDA execution model.
 
 
 \subsection{Contributions}
 
-This thesis designs and implements a number of persistent thread components to enable the efficient execution of GPU code within persistent threads. 
+This thesis designs and implements a number of persistent thread components to enable the efficient execution of GPU code. 
 
-\subsubsection{Task Management System}
+\begin{enumerate}
 
-An execution management system was developed to allow tasks to be queued and executed independently of resident executing kernels.
-This system captures the full execution context of functions, enabling persistent threads to retrieve, schedule, and execute tasks without requiring new kernel launches.
+	\item \textbf{Task Management System:}
+		An execution management system was developed to allow tasks to be queued and executed independently of resident executing kernels. 
+		This system captures the full execution context of functions, enabling persistent threads to retrieve, schedule, and execute tasks without requiring new kernel launches.
 
-\subsubsection{Memory Management System}
-The execution context for each task includes its associated memory allocations.
-To reduce the overhead of repeated allocations and deallocations, memory is mapped into a running epoch buffer of preallocated memory assigned before the launch of the persistent threads. 
-Tasks then operate within this preassigned memory region, eliminating the latency costs of frequent device memory management operations. 
-This system further provides a logical partition of input and output buffers in order to reduce data interdependencies.
+	\item \textbf{Memory Management System:}
+		To eliminate memory allocations throughout the runtime of the persistent kernel, a memory management system was designed.	
+		Tasks inserted into the task management utilize the memory management systems for their associated memory allocations.
+		In this system, memory is mapped into a running epoch buffer of preallocated memory assigned before the launch of the persistent kernel. 
+		This system further provides a logical partition of input and output buffers in order to reduce data interdependencies.
 
 
-\subsubsection{Concurrent Memory and Execution models}
-To support concurrent memory transfers between the host and device, as well as simultaneous kernel execution, the system leverages CUDA stream manipulation.
-This reduces interdependencies between data transfers and execution tasks, enabling higher overlap and better utilization of GPU resources.
+	\item \textbf{Concurrent Memory and Execution models:}
+		To support concurrent memory transfers between the host and device, as well as simultaneous kernel execution, the system leverages multiple independent CUDA streams to resolve data dependencies.
+		This system enables higher overlap between memory and compute operations and better utilization of GPU resources.
 
-\subsubsection{GPU Task Coordination and Synchronization}
+	\item \textbf{GPU Task Coordination and Synchronization:}
+		The persistent kernel is spread across multiple thread blocks to execute distinct tasks concurrently.
+		This system is synchronized within the device code to ensure that no two blocks execute the same task simultaneously.
+		By enforcing exclusive task execution, the mechanism prevents race conditions and ensures correctness across all kernels.
+		Furthermore, this system allows the host to efficiently schedule and queue tasks to any available thread block, maintaining high utilization of the GPU. 
 
-The scheduler enables multiple thread blocks to execute distinct tasks concurrently, ensuring that no two blocks perform the same task simultaneously 
-Furthermore, this system allows the host to efficiently schedule and queue tasks to any available thread block, maintaining high utilization of the GPU. 
-By enforcing exclusive task execution, the mechanism prevents race conditions and ensures correctness across all kernels.
-
+\end{enumerate}
 
 
 %\section{Thesis Outline}

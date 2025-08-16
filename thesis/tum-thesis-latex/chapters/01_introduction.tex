@@ -20,28 +20,30 @@ This modular architecture ensured responsiveness and real time guarantees at the
 
 
 The rise of increasingly powerful GPUs has enabled a shift toward centralized computing in order to simplify the hardware and complexity while reducing costs. 
-In this centralized architecture, all core driving modules share a common compute node consisting of a CPU-GPU system. 
-The compute node integrates a CPU for task scheduling and system control, complemented by a GPU optimized for compute intensive workloads.
+In this centralized architecture, all core driving modules share a common compute node consisting of a heterogeneous CPU-GPU system. 
+The compute node integrates a CPU for task scheduling and system control, which assigns compute heavy workloads to the GPU.
 Moving to a singular compute node allows savings in cost, design, and intermodule latency.
 
 \subsection{Limitations of Current GPU Execution Models}
 
 Despite the benefits afforded by a centralized architecture and the advances in hardware, the system risks GPU oversubscription.
-As the GPU is simultaneously responsible for all processing tasks, too many simultaneous scheduled tasks can lead to delays in execution time. 
-Typical real time system solutions based on a \acs{CPU} architecture, ensure system safety under contention by preempting non critical tasks. 
-Tasks requiring high responsiveness can thus be directly executed after preemption of the resident threads and processes.
-This preemption is supported both natively at the OS and user space levels on the \acs{CPU}, but not the \acs{GPU}. 
+As the GPU is responsible for all processing tasks, too many simultaneously scheduled tasks can lead to delays in execution time. 
+Typical real time solutions based on a \acs{CPU} architecture, ensure system safety under contention by preempting non critical tasks. 
+Tasks requiring high responsiveness can then be directly executed after preemption of the resident processes.
+Although there already exists native support for this preemption on \acsp{CPU} within both the kernel and user space, \acsp{GPU} currently lack such capabilities. 
 
-Modern GPUs, are unable to natively support real time programming models and instead rely on a proprietary hardware scheduler that restricts the programmer's scheduling control.
-The scheduler in particular is optimized for throughput rather than deterministic execution, which is required by real time systems. 
+Modern GPUs do not natively support real time programming models in the same way CPUs do.
+GPU execution is managed by a hardware scheduler that handles thread blocks, warps and memory accesses according to fixed, internal policies. 
+This internal GPU hardware scheduler is optimized for throughput rather than deterministic execution, required by real time systems. 
+In effect, programmers have limited control over the exact scheduling of threads or tasks, when using standard scheduling techniques. 
 Critically, tasks with strict timing requirements may suffer delays if long running, lower priority kernels are already resident on the device. 
-The inability to natively preempt GPU kernels or to enforce strict task priorities makes a native utilization of GPUs difficult for safety critical, real time workloads.  
-Particularily in the context of autonomous driving, the repercussions of latencies pose a safety concern. 
+The inability to natively preempt GPU kernels or to enforce strict task priorities makes using standard GPU kernel scheduling methods unsuitable for safety critical, real time workloads.  
+Particularily in the context of autonomous driving, the repercussions of latencies pose a safety hazard. 
 
 
 \section{Problem Statement}
 
-Rather than relying on native kernel launches, this thesis investigates the use of persistent threads to enable low latency execution, and develops the foundational framework needed to integrate coroutines into the system.
+Rather than relying on native kernel launches, this thesis investigates the use of persistent threads to enable low latency execution and develops the foundational framework needed to integrate coroutines into the system for further real time determinism.
 Persistent threads are specialized kernels that are launched at the start of the application and remain active throughout the lifetime of the system. 
 They function as a user level scheduler, continuously polling for work, executing tasks, and executing scheduling decisions. 
 
@@ -49,20 +51,22 @@ Building on this framework, the central research question addressed in this thes
 
 \vspace{\baselineskip}
 
-\textbf{How can a persistent GPU thread model be designed to support the implementation of GPU coroutines for predictable, low latency scheduling on real time systems?}
+\textbf{How can a persistent GPU thread model be designed to enable the implementation of GPU coroutines for predictable, low latency scheduling on real time systems?}
 
 \vspace{\baselineskip}
 
-As part of this research, the following aspects will be considered and evaluated:
+As part of this research, the following aspects of the persistent threaded implementation will be considered and evaluated:
 
 \begin{itemize}
-    \item \textbf{GPU Stream Management:} Organizing and scheduling multiple GPU streams to enable concurrent task execution with memory transfers while maintaining predictable execution orders.
+
+    \item \textbf{GPU Task Management:} Mechanism for submitting tasks to the GPU and retrieving results asynchronously.
     
-    \item \textbf{GPU Device Memory Management:} Efficient allocation, deallocation, and usage of GPU memory to ensure low latency access and avoid contention between tasks.
-    
-    \item \textbf{GPU Task Enqueuing and Dequeuing:} Mechanisms for submitting tasks to the GPU and retrieving results asynchronously.
+	\item \textbf{GPU Device Memory Management:} Efficient allocation, deallocation, and usage of GPU memory to ensure low latency access and avoid contention between tasks.
+
+    \item \textbf{GPU Stream Management:} Organizing and scheduling multiple GPU streams to enable concurrent task execution with memory transfers, while maintaining predictable execution orders.
     
     \item \textbf{Framework for Coroutines:} Designing a foundation for GPU coroutines that allows cooperative multitasking and the implementation of custom scheduling strategies on top of persistent threads.
+
 \end{itemize}
 
 

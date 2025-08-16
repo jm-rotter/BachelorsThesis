@@ -4,30 +4,26 @@
 
 This background chapter begins by examining the role of \acsp{GPU} in real time sytems, focusing on the architectural and programming constraints that influence scheduling and performance. 
 The section then devlops into an analysis of real time programming models for GPUs with consideration of persistent threads and coroutines as implemented into the autonomous driving system Apollo. 
-These coroutines are further evaluated through LuisaCompute's automatic GPU coroutine generator.
-The goal is to provide the necessary technical background to understand how GPU design influences system behavior and scheduling under real time constraints.
-
+This section provides the necessary technical background to understand how GPU design influences system behavior and scheduling under real time constraints.
 
 
 \section{Real Time Systems}
 
 Real time systems are designed with strict timing constraints to ensure predictable and safe behaviour. \cite{10155700}
-These constraints are expressed in terms of the systems ability to meet task deadlines, categorized as either soft or hard.
-Hard deadlines are critical to the safety of the system.
-Missing these deadlines results in potential system failure or unsafe conditions, such as collision avoidance or brake activation.
-To ensure the safety of the system, these deadlines need to be prioritized over the less critical soft deadlines. 
-Soft deadlines, for example route planning or navigation updates, are deadlines that should be ensured, but do not lead to system failure if not met. 
-Delays here may lead to suboptimal paths or low display responsiveness, but do not risk safety.
-Real time systems ensure system safety by preempting soft deadline tasks to prioritize hard deadline, critical tasks. 
-
+These constraints are expressed in terms of the systems ability to meet task deadlines, classified as either soft or hard deadlines.
+Hard deadlines are critical to the safety of the system and missing these deadlines results in potential system failure or unsafe conditions. 
+For example, missing the deadline on tasks such as collision avoidance or brake activation, severely impact the systems safety.
+Soft deadlines, in contrast, are less critical and can be missed without posing a risk to system integrity. 
+To ensure the safety of the system, tasks are priortized both by their deadline urgency and by the criticality of their impact. 
+Prioritization in real time systems often requires preempting soft deadline or non urgent tasks in order to prioritize hard deadline, critical tasks. 
 
 \section{Integration of GPUs in Autonomous Driving Systems}
 
 Early autonomous systems relied solely on \acs{CPU} based compute engines for system control and task execution. 
 For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, used 6 Pentium processors among which tasks were divided.
-The CPU centric design along with resource partitioning, allowed the system to meet real time requirements using existing strategies, similar to how Apollo manages the runtime CPU environment today.
+The CPU centric design, combined with resource partitioning, enabled the system to satisfy real time requirements using established approaches. 
 
-These systems used execution tasks such as sensor fusion, localization, and path planning, which were still \acs{CPU} friendly. 
+These systems used CPU friendly execution tasks such as sensor fusion, localization, and path planning to meet execution latencies. 
 However, as \acsp{CNN} were increasingly used due to their high accuracy in perception tasks, CPUs struggled to continue performantly processing data in real time. 
 As \acsp{CNN} quickly became the dominant approach towards perception based tasks and the complexity of these models continued growing, \acsp{GPU} began to be increasingly integrated into these systems. 
 One of the earliest projects using GPUs for autonomous driving, was NVIDIA in 2015, which used a GPU to train a CNN that could steer a car end to end from raw camera input. % https://arxiv.org/pdf/1604.07316
