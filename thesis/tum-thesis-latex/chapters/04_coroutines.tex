@@ -1,8 +1,29 @@
-\section{Luisa Coroutines}\label{chapter:Coroutines}
+\section{GPU Programming Models for Real Time Systems}\label{chapter:Coroutines}
 
-The first proposed approach to implementing a GPU scheduler for autonomous driving focuses on integrating the LuisaCompute coroutine platform into Apollo.
-The goal was to enable GPU coroutines within Apollo, allowing the autonomous driving framework to suspend and resume GPU kernel execution.
-This capability would allow the scheduler to better enforce bounded response latencies by directly scheduling the highest priority tasks at the appropriate time, rather than waiting for current GPU workloads to complete.
+\subsection{Persistent Threads}
+
+
+Persistent GPU threads provide the programmer enhanced control over hardware scheduling and reduces scheduling overhead. 
+In particular, this increased control enables the introduction of advanced GPU scheduling strategies, such as coroutines or mega kernels. 
+By running persistent threads, kernel configurations can be loaded ahead of runtime, minimizing runtime overhead during execution.
+
+To maximize hardware utilization, interactions between the host and GPU should be minimized. 
+For each new scheduled task, the GPU must typically allocate memory, copy data into buffers, allocate SM resources, load the kernel, set up kernel parameters such as shared memory and thread configurations, execute the kernel, and finally copy results back and free resources. 
+This sequence introduces significant overhead for every API call.
+In systems with recurring or periodic tasks, such as autonomous driving, this overhead becomes particularly costly, as the same configurations are repeatedly allocated and freed.
+
+
+Persistent kernels address this problem by reducing redundant operations. 
+Instead of repeatedly allocating memory and system resources, long running thread remain preconfigured on the GPU. 
+Only input and output buffers need to be updated for each new task, minimizing execution overhead and allowing kernels to operate with only the essential arguments required for computation.
+
+\subsection{Megakernels}
+
+Megakernels are very similar to persistent kernels, but instead of preallocating GPU resources, they employ kernel fusion. 
+Individual kernels are fused together to form a megakernel, which contains either the entire device program or multiple smaller kernels. 
+Practically, this method is similar to a persistent kernel, by optimizing GPU scheduling by reducing API overhead. 
+The megakernel is then essentially a persistent kernel, which is launched at the start of the program, executes all of the system tasks, before returning. 
+
 
 \subsection{Coroutines}
 
@@ -14,20 +35,19 @@ Here, execution of a kernel can be suspended to allow another kernel to run, and
 A coroutine suspends execution by capturing its current context, known as the continuation, which contains the execution state needed for later resumption \cite{Zheng2022LuisaRender}.
 Once suspended, another task can execute without overwriting or disrupting the saved kernel state.
 When the interim task completes, the coroutine can continue exactly where it left off by restoring its continuation.
-This ability to strategically pause and resume execution makes coroutines well suited for real time GPU workloads, where rapid switching between concurrent tasks can help meet hard deadlines without delay.
+This ability to strategically pause and resume execution makes coroutines well suited for real time workloads, where rapid switching between concurrent tasks can help meet hard deadlines without delay.
 
 
-\subsection{CPU Coroutines}
+\subsubsection{CPU Coroutines in Apollo}
 
-Unlike threads or processes, which require relatively expensive context switching, coroutines enable simpler and faster context switches between functions.
-This efficiency arises from the way function calls are handled at the CPU level, particularly on x86 architecture.
-To switch a function, the GPU merely needs to save its state and then jump to the new function instruction address. 
+Apollo the autonomous driving system, already employs the coroutines for the runtime CPU environment. 
+These coroutines are implemented using the native x86 calling conventions to save continuations using the stack. 
+To switch a function, the CPU merely needs to save its state and then jump to the new function instruction address. 
 
 
-
-In x86 calling convention, when a function is called, the CPU pushes the return address, the address of the next instruction to execute, onto the stack and jumps to the called function’s instruction address.
+In x86 calling convention, when a function is called, the CPU pushes the address of the next instruction after the function onto the stack and jumps to the instruction referenced by the call instruction.
 The called function accesses its variables via the stack and registers.
-Registers are categorized into two groups: volatile, caller saved and non-volatile, callee saved.
+Here, registers are categorized into two groups: volatile, caller saved and non-volatile, callee saved.
 Volatile registers may be freely modified by the callee without restoration, whereas callee saved registers must be preserved and restored before the function returns.
 
 When the function executes a return instruction, the CPU pops the return address off the stack and continues execution from that point.
@@ -78,7 +98,7 @@ Furthermore, these continuations benefit from the user explicitely defining the 
 User defined suspension points typically involve much smaller contexts than preemption points, as they align more closely with convenient locations within the executing program. 
 Consequently, coroutine contexts can often be kept minimal by leveraging only these carefully chosen points that require smaller saved states.
 
-\subsection{GPU Coroutines}
+\subsubsection{GPU Coroutines}
 
 In contrast to CPU coroutines, the GPU coroutines are more complex due to the large number of concurrent threads and concurrent warps that are executing and the specifics of GPU programming, especially in regards to the stack management.
 GPUs launch kernels that can not be interrupted by the system of programmer throughout the duration of its lifetime.
@@ -86,7 +106,7 @@ The kernel function will saturate the number of warps and threads that were allo
 After each kernel terminates the state afterwards is not preserved for the next incoming kernel. 
 Given these restrictions, the kernel must manually yeild execution using a user space sheduler. 
 
-\subsubsection{Inlining}
+\paragraph{Inlining}
 Attempting to implement the CPU style coroutines using the ctx\_swap function does not work, given that the GPU handles function calls differently than the GPU. 
 \acs{CPU} function calls store the call stack within the stack, by pushing instruction pointers that can be popped with ret.
 The GPU does not use these, but instead saves stack pressure by aggressively inlining function calls. 
@@ -105,21 +125,5 @@ Given that call stacks are not effectively or efficiently supported in CUDA, the
 Due to the nature of kernels executing until completion, the \acs{GPU} coroutine scheduler needs to be based on a persistent kernel, which can schedule coroutines.
 These coroutines themselves need to have suspension points to manually give control back to the scheduler in order to execute the next task. 
 Saving every register value for every thread across every coroutine is to computationally expensive, so the coroutine contexts need to be managed locally and saved in global memory to free up limited \acs{SM} resources for new tasks. 
-
-\subsubsection{LuisaCompute-Coroutine}
-
-The implementation developed in LuisaCompute-Coroutine enables GPU coroutines by providing a coroutine based API that acts as a \acs{JIT} compiler for generating GPU kernels at runtime. 
-LuisaCompute offers a DSL embedded in C++, allowing programmers to explicitly define coroutine suspension points using standard C++20 coroutine syntax, such as co\_await. 
-These coroutine constructs are not executed immediately but are instead interpreted symbolically into an \acs{AST}.
-
-At runtime, LuisaCompute builds a symbolic representation of the kernel's control and data flow in an abstract syntax tree (AST), through operator overloading and expression tracking. 
-This symbolic trace is then lowered into an intermediate representation (IR), which encodes the coroutine as a state machine, capturing both the control flow and the coroutine's execution context. 
-The resulting IR is compiled into GPU code, such as PTX for CUDA, using LuisaCompute’s JIT backend. 
-Once compiled, these coroutine-based kernels are dispatched and executed on persistent GPU threads, which maintain their state across kernel invocations and facilitate efficient asynchronous execution and task switching on the GPU.
-
-
-As part of this work, I initially explored the possibility of integrating LuisaCompute coroutines into the Apollo autonomous driving platform. 
-However, due to the lack of documentation and my limited understanding of both Apollo and LuisaCompute in both the implementation of tasks into Apollo and the underlying abstract syntax tree (AST) and intermediate representations (IRs) used in LuisaCompute's JIT compilation system, I struggled with dependency issues and was ultimately unable to complete the integration. 
-Rather than continuing down this path, I decided to simplify the problem and shift focus toward developing a custom implementation of persistent GPU threads, which still reduce the overhead involved with launching \acs{GPU} kernels. 
 
 

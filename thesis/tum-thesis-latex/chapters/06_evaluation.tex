@@ -1,6 +1,6 @@
 % !TeX root = ../main.tex
 
-\chapter{Evaluation}\label{chapter:Evaluation}
+\chapter{Experiments and Evaluation}\label{chapter:Evaluation}
 
 This chapter evaluates the proposed GPU persistent thread model with respect to the objectives of this work:
 
@@ -18,7 +18,7 @@ The evaluation focuses on measuring the model’s effectiveness in meeting the s
 In particular, it examines scheduling latency, kernel overhead, and suitability as a baseline for real time programming models such as coroutines.
 The results highlight both the benefits of the approach and its limitations, especially regarding task variability and scaling across the \acs{GPU}.
 
-\section{Kernel Overhead Measurement}
+\section{Experimental Setup}
 
 In order to evaluate the effectiveness of persistent threads in reducing the scheduling latency, the solution was tested on a matrix multiplication benchmark against a baseline implementation. 
 To test the persistent threaded implementation, a simple matrix multiplication task was repeatedly scheduled on the persistent thread implementation and compared with a simple kernel invocation code.  
@@ -159,17 +159,13 @@ Upon resumption, the scheduler retrieves this data and restores the task's execu
 By combining these mechanisms with the persistent thread framework, the GPU could effectively execute multiple long-lived, cooperative tasks, enabling finer-grained scheduling and more efficient utilization of GPU resources, especially in irregular or latency-sensitive workloads.
 
 
-
-
-
 \section{Limitations and Future Work}
 
-Currently, the persistent threads execute using only a single \acs{CTA} block on a single GPU.  
-This design choice was intentional to establish a minimum viable implementation, but it limits overall GPU utilization and throughput.
-
-Scaling the persistent kernel to launch multiple worker \acs{CTA}s, ideally one per Streaming Multiprocessor, would improve parallelism and resource usage, potentially unlocking significant performance gains.
-
-Additionally, the current manual streaming of input and output parameters restricts task variability and automation.  
+The current system does not support priority based scheduling decisions or utilizing coroutines for software preemption like execution.
+Future work implementing the strategies outline by this thesis towards utilizing the persistent kernel implemenation as a baseline for these tasks would enable further predictable real time scheduling capabilities. 
+In this case, the memory management system might need to progress from an epoch based scheduler to a more complex management system. 
+Low priority tasks would interrupt the freeing of epoch memory. 
+Furthermore, the current manual streaming of input and output parameters restricts task variability and automation.  
 Developing a generalized parameter serialization and deserialization layer that supports arbitrary kernel arguments would increase flexibility and reduce overhead in task preparation.
 
 Further improvements could also include:

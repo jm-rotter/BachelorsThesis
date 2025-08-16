@@ -22,3 +22,8 @@ Important here, is that the scheduler can be chosen or rewritten, which will be 
 Ultimately, through the design of an easy-to-use and easily accessible library, this work can be implemented into autonomous driving systems. 
 
 
+
+As part of this work, I initially explored the possibility of integrating LuisaCompute coroutines into the Apollo autonomous driving platform. 
+However, due to the lack of documentation and my limited understanding of both Apollo and LuisaCompute in both the implementation of tasks into Apollo and the underlying abstract syntax tree (AST) and intermediate representations (IRs) used in LuisaCompute's JIT compilation system, I struggled with dependency issues and was ultimately unable to complete the integration. 
+Rather than continuing down this path, I decided to simplify the problem and shift focus toward developing a custom implementation of persistent GPU threads, which still reduce the overhead involved with launching \acs{GPU} kernels. 
+

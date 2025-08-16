@@ -2,89 +2,74 @@
 
 \chapter{Design and Implementation Requirements}\label{chapter:Persistent Threads}
 
-Persistent GPU threads allow the hardware resources to be partitioned and reduce kernel execution and scheduling overhead and are fundamental for other applications seeking to enhance GPU scheduling.  
-Many other applications such as coroutines or mega kernels are based on persistent threads as a means of reducing kernel launch overhead and allow further control in application specific scheduling decisions, otherwise black boxed by the cuda api. 
-Running persistent threads essentially allows the memory and system configurations to be loaded in ahead of runtime and reduces overhead during execution.
+At a high level, there are four important components: the task queue, memory buffers, stream design, and gpu block synchronization.
+The task queue is managed, controlled, and allocated by the host and provides the arguments and tasks for the GPU to execute. 
+The implementation of the task queue gives the programmer fine-tuned implementation oppertunities to manually design and schedule workloads. 
+The memory buffers provide an epoch based staging area for input arguments and output results as well as persistent memory for the further extension of coroutines.
 
-Failing to implement LuisaCompute's coroutines into Apollo, the goal shifted to finding a manual GPU scheduling functionality to implement and use. 
-In restricting the scope from GPU coroutines to simply implementing persistent threads into Apollo, this thesis attempted to find an open source implementation which would allow the fine grained scheduling controll specific to Apollo. 
-Unfortunately, given that most persistent thread implementations are highly specific they are not open source, which led to selecting an implementation that required more work to make it feasible. 
-The only open source persistent thread implementation that was readily available was LightKer, a research project, which measured the hypothetical speedup of using persistent threads over sequential kernel launches. 
-Seeking to implement LightKer into Apollo first required a complete restructuring of the code base to support a real time system.
 
-The LightKer implementation itself intended to measure the performance difference between sequential kernel executions versus a persistent kernel implementation.
-This implementation constructed simple trivial kernels and tested the overhead difference between calling them explicitely from the host in kernel launches versus implicitely in the persistent kernel. 
-Unfortunately, this application does not support variable tasks or memory transfers at runtime, necessary to pass arguments and results back and forth. 
-As such, the implementation only succeeds in measuring latency differences between scheduling tasks using a device side while loop versus explicit kernel launches. 
-However, the LightKer implementation does provide a simple framework for using a GPU-Host mailbox for scheduling kernel tasks as well as a helpful persistent kernel launch structure. 
+\section{Task Management System}
 
-\section{Architecture}
+For persistent threads to execute kernels at runtime, a staging mechanism is required to enqueue tasks and maintain the task context necessary for execution.  
+As discussed in Chapter~\ref{chapter:Background}, any task management system that relies on device side scheduling logic is inherently ineffecient due to characteristics of GPU architecture.
+Therefore, the task management system in this design adopts a host driven scheduling model, where tasks are prepared and dispatched from the CPU, while persistent threads on the GPU handle execution. 
+This approach enables better control over task odering, reduces idle time, and improves overall predictability, essential for real time workloads. 
+Furthermore, this system should be compatible with coroutine based execution and priority scheduling in the future. 
 
-From a high level, the architecture implemented into this project appears as follows, with the GPU-Host Mailbox, being used from the Lightkernel project as well as the internal structure.
+
+\subsection{Task Queue Design}
+
 
 \begin{figure}[H]
   \centering
   \resizebox{1.0\linewidth}{!}{
-	  \input{figures/architecture.tex}
+	  \input{figures/taskqueue.tex}
   }
-  \caption{Persistent Thread Architecture implemented into LightKer}
-  \label{fig:architecture}
+  \caption{GPU Task Queue for Task Management}
+  \label{fig:taskqueuearchitecture}
 \end{figure}
 
+The architecture implemented into the persistent thread scheduler uses a loop through buffer, as a FIFO queue, in a producer-consumer architecture. 
+As shown in Figure~\ref{fig:taskqueuearchitecture}, each GPU task is represented as a clipboard, which contains the function context. 
+The context contains both the information needed to execute the device function, as well as metadata for the control of the task within the queue. 
+The host acts as a producer, enqueuing tasks into the task queue at the front, while the device consumes tasks from the back.
 
-At a high level, there are three important components: the task queue, memory buffers, and the persistent threads themselves.
-The task queue is managed, controlled, and allocated by the host and provides the arguments and tasks for the GPU to execute. 
-The implementation of the task queue gives the programmer fine-tuned implementation oppertunities to manually design and schedule workloads. 
-The memory buffers provide an epoch based staging area for input arguments and output results as well as persistent memory for the further extension of coroutines.
-Lastly, the persistent threads are the fundamental execution units executing the \acs{GPU} code.  
+To improve the complex scheduling efficiency, all task enqueuing and dequeueing logic rests on the host side of the system. 
+Enqueuing a task involves copying its context into the task queue and initializing the associated control variables of the task within the function context. 
+Before execution, the device simply checks the control variables to ensure that only valid tasks are executed. 
+Upon tasks being executed by a \acs{CTA}, the device block will advance the back pointer to the next available task within the queue. 
 
-The Figure~\ref{fig:architecture} depicts these individual components in a logical program architecture overview.
-The left side of the graphic shows the host side code and methods, which allow the enqueuing of tasks and launching of the persistent thread kernel.  
-On the right hand side of the graphic, the actual device side code allocation and kernel execution is depicted which allows the processing of memory and write back of results to the memory buffers.
-The mailboxes are constantly enqueuing and dequeuing new tasks throughout the execution of the kernels.
-
-\section{Implementation}
-
-GPU kernels are essentially device side functions launched by the host process, which execute with parameters and a logical grid of threads to be distributed across the \acsp{SM}.
-In order to replicate both the parameterization and execution model without explicitely launching new kernels, the persistent threads must maintain a mechanism for storing function pointers and their associated arguments to assign work to idle compute resources dynamically.
-Similar to other persistent thread implementations, this project implements a task queue, that captures the full execution context required to execute the GPU code. 
-As shown in the Figure~\ref{fig:architecture}, the task queue is represented as an array of clipboards each encapsulating a function context.
-Beneath the task queue, Figure~\ref{fig:architecture} also depicts the staging area used for memory management. 
-The memory management is implemented using an epoch based allocation strategy.
-These memory buffers serve as a real-time memory management structure for GPU kernels, reducing the need for direct runtime memory allocation while enabling in-place memory reuse for tasks.
-
-Based on the results in Figure~\ref{fig:singlethreadedgraph}, any sequential scheduling mechanism executing directly on the device would incur significantly performance penalties when compared to a CPU based approach.
-As a result, both the task queue and the associated memory buffers are managed from the host side.
-This includes deteriming the active epoch and assigning task indices within the corresponding memory or queue structures.
-The host is responsible for copying all required parameters into device memory and delegates only the  dequeuing and execution of tasks to the GPU.
+To ensure that tasks are not overwritten, the host tracks the total number of tasks currently in the system in relation to the total length of the task queue.
+Every time a new task is added to the queue, the tracker is incremented, unless the queue is full, which results in a failure response, similar to the native CUDA system. 
+For the host to decrement the length tracker, the device must execute the task, notify the host, upon which the host can copy the results back. 
+After the results are copied back, a new task can then be enqueued to the same postion in the queue. 
 
 
-Furthermore, standard GPU kernel launches specify the thread configuration and grid layout of GPU threads executing the code and their physical placement in the architecture. 
-The GPU automatically decides the execution placement of the kernels from the Gigathread Engine during the launch of GPU code from the host. 
-As the persistent threads are already launched at program start, the configuration remains the same throughout the lifetime of the persistent thread. 
-Therefore these persistent threads can not support variable launch configurations at runtime without terminating the kernel and restarting a new kernel with different launch configurations.
-However, multiple different persistent kernels can be started with various kernel launch configurations, each with different task queues, or through code refactoring the kernels can be adapted to the existing GPU thread block organization.
 
-\subsection{Task Queue}
+\subsection{Extensibility for Coroutines and Priority Scheduling}
 
-The task queue functions as a cache like buffer between the host and the executing GPU code, enabling the asynchronous enqueuing of tasks.
-Rather than relying on the cuda driver to dynamically partition the GPU and assign tasks to threads, task parameters are instead written into a pre-allocated memory region.
-This memory acts as a staging area and remains allocated throughout the duration of the persistent thread kernel, with periodic cleanup. 
+The function contexts stored in the task queue buffer were specifically designed with the future implementations of coroutines and priority scheduling in mind. 
+By introducing additional control variables into the function context, the host system can assign tasks different priorities. 
+Furthermore, the queue already provides space to store the continuation of the coroutine, allowing a task to yield and record the current instruction for later resumption.
 
-Each task entry defines its execution context through an explicit function identifier and its associated parameters.
+Currently the system executes tasks in a loop using a synchronized busy waiting scheme.
+However with slight modifications, it can be extended to support priorities. 
+If every task additionally contained a priority or deadline in its function context, the persistent threads polling active tasks could select and execute the most critical tasks first. 
+In this case, the host would need to actively track executing tasks to ensure they are not accidently overwritten.
+
+In conjuction with this system, the function context can also store the coroutine continuation.
+While precomputed values could be easily stored in the function context, capturing the resumption address is more challenging.  
+On the GPU it would be necessary to define specific set points within the program and save a variable in the function context that indicates the next instruction to be executed within the kernel. 
+
+
+\section{Function Context}
+
+Each task entry defines its execution context through an explicit function identifier and its associated function parameters.
 This entry acts exactly like a coroutine continuation, which stores the necessary state to resume execution within the function. 
-The GPU kernel, launched with persistent threads, enters a loop in which each block repeatedly dequeues and executes tasks. 
+The function id is used in conjuction with a lookup table to execute the GPU device code. 
+The memory location for the parameters is allocated by the host as part of the enqueuing and memory management systems.
 
-Within this loop, each GPU block retrieves the next task from the queue, processes it, and stores its results. 
-The task queue maintains both input and output buffer offsets for each tasks, allowing blocks to fetch parameters and write results. 
-When a task is selected for execution, its parameters are deserialized from the input buffer, converted into an internal representation, and used to invoke the corresponding device function. 
-
-Upon completion of the task, the \acs{GPU} block writes the results to the specified output buffer offset.
-This scheme works because the \acs{CPU} knows the exact size of the input and output arguments, knowledge it already must have for issuing cudaMemcpy operations.
-
-Once a the block finishes executing a task, it signals the host that the task is complete and then continues processing the next available task in the queue.
-
-\subsection{Function Pointers}
+\subsection{GPU Function Pointers}
 
 To execute new functions from the persistent threads, the task queue needs to be able to reference the specific function. 
 Generally referencing functions on a \acs{CPU} requires only the function pointer to execute the code defined at that memory location. 
@@ -92,7 +77,6 @@ When GPU functions are compiled, the device code lives in the GPU address space 
 The CPU only has access to functions denoted by the \lstinline[language=cuda]`__global__` keyword, which allows the execution of GPU kernels, not enqueuing of GPU functions.
 In order to be able to access and run the functions specified by the CPU, the task queue supports a lookup table to map integers to specific functions.  
 The lookup table allows the host to memcpy in function ids to the task queue when enqueuing new tasks.
-
 
 \subsection{Function Parameters}
 
@@ -104,33 +88,182 @@ The GPU task in the queue originally had a pointer to the allocated memory and u
 Unfortunately, this method is dependent on the specific task and parameters and consumes variable memory requiring further pointers to GPU memory.  
 In order to consolidate the memory pointers, the task queue was simplified to contain only allocated memory pointers in order to automatically load kernel memory. 
 
-
 In this method, enqueing the GPU tasks forces the programmer to streamify the data and automatically load the memory into preallocated memory partitions. 
 The task queue then only consists of the actual memory partition pointers, both start and end. 
 Executing a task then requires the interpretation of the memory and then the loading of it into the device function.
-Manually extending this method allows the user to manually allocate more memory than is needed and use that memory to yield and run coroutines.
+Should the input memory be oversubscribed, the task then has a preallocated buffer to store any updated context for the continuation of the coroutine. 
+
+\section{Memory Management System}
 
 
-\subsection{Memory Model}
+The memory management system supports the task queue, while eliminating unnecessary memory allocation and deallocation overheads. 
+By managing memory centrally, the task queue's function contexts can remain simple and flexible. 
+This memory system is managed for the lifetime of the persistent kernel, removing the need for costly dynamic memory operations at runtime.  
+While maintaining a memory buffer is simple, designing a runtime strategy to partition memory among tasks and reclaim it efficiently presents a more complex challenge. 
+To visualize this, Figure~\ref{fig:membuffer} shows the memory buffer logically partitioned into epochs, with each epoch containing input argument and output result buffers for the corresponding tasks.
 
-In order to provide the incoming scheduled kernels a staging area for allocated memory, the implementation contains a running epoch memory model. 
-The memory model contains n epochs, with an input and output staging area for each respective epoch. 
-As input are copied into epochs, eventually the corresponding input memory buffer will overflow. 
-The host enqueuing functionality manages the current epoch and the current offset within that epoch, which allows the host to detect when the input buffer will lead to an overflow.  
-Once the buffer is saturated, the host proceeds to allocate further memory to the next epoch.
-After the device finishes executing the task and copies results to the corresponding epoch's result buffer, the host is notified and that memory is marked as free.
+
+\subsection{Memory Buffer Design}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{1.0\linewidth}{!}{
+	  \input{figures/mem_buffer.tex}
+  }
+  \caption{Continuous Memory Buffer Logically Partitioned}
+  \label{fig:membuffer}
+\end{figure}
+
+
+The memory management system consists of a single, logically partitioned memory buffer, designed to reduce the complexity of allocation algorithms. 
+Each epoch within this buffer contains both an input argument and output result section.
+The entire overhead of managing the position of task memory within the buffers is entirely managed by the host and shared with the device through the function context within the task queue. 
+
+
+As tasks are allocated within the epochs, eventually one of the corresponding memory buffer will overflow. 
+When the host detects that allocating memory for a task either results in the input or output buffer overflowing, the host begins allocation in the next epoch.  
 After fully allocating the memory for an individual buffer, that buffer remains untouched by the scheduler until the scheduler loops around the entire buffer queue and reaches the same epoch again.
+An epoch is free to schedule again when all results of tasks allocated within that epoch have been collected and marked as free.
 
 
-The motivation for this epoch based strategy both asynchronously manages the execution of tasks as well as overhead reduction of continuously freeing and allocating new memory.
-As these persistent buffers remain allocated throughout the entirety of the kernel, there is no longer any overhead involved in gpu side memory allocation or freeing, as the memory is tied to the lifetime of the kernel and only internaly considered allocated or freed.  
-When the buffer queue loops and returning back, if the specific buffer parameters and memory size has been correctly set, potentially through profiling, the buffer will be free and can be reused.
-The buffer is only considered free if all tasks within the buffer are considered free, which removes any complicated GPU side memory allocation schemes.
+The host manages these epochs, by tracking the number of tasks within each epoch and the current offset within the current epoch. 
+To enqueue tasks input arguments are immediately loaded at the current offset within the current epoch. 
+Tasks are only considered as free after the memory has been copied back to the host and the host marks the epoch memory as freed. 
+When the buffer queue loops and returns, if the specific buffer parameters and memory size has been correctly set, potentially through profiling, the buffer will be free and can be reused.
 
-\subsection{Cuda Streams Optimization}
 
-To fully leverage the GPU’s memory transfer capabilities, input and output transfers are performed in separate, overlapping CUDA streams.
-As previously noted, the GPU features distinct engines for \acs{H2D} and \acs{D2H} transfers, which can operate concurrently. 
-By assigning input transfers to a dedicated H2D stream and output transfers to a separate D2H stream, this implementation avoids intra-stream dependencies and enables parallel data movement in both directions.
+\subsection{CUDA Stream Optimization}
+
+As discussed in Chapter~\ref{chapter:Background}, modern GPUs feature two independent memory transfer engines to support bidirectional data movement between host and device.
+One engine is dedicated to \acs{H2D} transfers, while the other handles \acs{D2H} transfers.
+These engines can operate concurrently, enabling overlap between data movement and computation if used correctly.
+
+To fully exploit this hardware capability, input and output transfers must be carefully organized.
+If tasks are enqueued into a single CUDA stream, transfers and kernel executions are serialized, causing the GPU to wait unnecessarily and leaving one of the transfer engines underutilized.
+To avoid this, the implementation employs multiple CUDA streams, separating concerns between input staging, output collection, and kernel execution.
+
+Specifically, input arguments are transferred from the host to the device using a dedicated H2D stream, while task results are copied back to the host through a separate D2H stream.
+This separation prevents intra-stream dependencies between input and output operations, ensuring that transfers in opposite directions do not block one another.
+This design enables continuous execution of persistent threads: while one batch of tasks is being executed on the GPU, the next batch can be staged in device memory, and previously completed results can be copied back to the host.
+
+By combining the persistent task queue with a dual-stream transfer strategy, the scheduler achieves efficient utilization of both memory transfer engines and GPU compute resources.
+The result is a pipeline where host-to-device transfers, device computation, and device-to-host transfers proceed in parallel, minimizing idle time and maximizing throughput.
+
+\section{GPU Block Synchronization}
+
+In order to utilize hardware efficiently, the persistent kernel launches multiple independent GPU blocks across the available \acsp{SM}.
+Each block concurrenlty dequeues and executes task from the shared task queue. 
+However, when the kernel consists of multiple blocks, concurrent access to the shared queue introduces the risk of interference between blocks.
+Without coordination, multiple \acsp{CTA} may race for the same task, resulting in lost work, duplicated execution, or even corrupted input or output buffers. 
+
+The most critical source of contention is the global device task queue tail pointer \lstinline[language=cuda]'d_tail', which identifies the next task to execute.
+Since all blocks of the persistent kernel on the device update this shared variable, race conditions may cause two blocks to claim the same task, while others may skip tasks entirely.
+To guarantee correctness, the dequeue operation must therefore be synchronized.
+
+This synchronization is achieved using atomic device instructions, which enforce mutual exclusion when updating shared memory locations.
+The device function \lstinline[language=cuda]'dequeue' in the following block demonstrates the mechanism:
+
+
+\begin{lstlisting}[language=cuda,caption={Synchronized Block Execution of Tasks}, label={lst:dequeue}]
+__device__ int dequeue(volatile mailbox_elem_t * from_device){
+
+	int old_d_tail = d_tail;
+	unsigned int next = (old_d_tail + 1) % WORK_QUEUE_LENGTH;
+	int terminate = 0;
+
+	if(threadIdx.x == 0 && threadIdx.y == 0) {
+
+        int prev_state = atomicCAS(&d_task_queue[old_d_tail].executing, 2, 1);
+		
+		if (prev_state != 2){
+			terminate = 1;
+		}
+		else {
+			int updated_idx = atomicCAS(&d_tail, old_d_tail, next);
+		}	
+		
+	}
+	__syncthreads();
+	if(terminate) {
+		return terminate;
+	}
+
+	__syncthreads();
+	bool execution = execute(d_task_queue[old_d_tail]);
+
+	d_task_queue[old_d_tail].executing = 0;
+
+    DeviceWriteMyMailboxFrom(THREAD_FINISHED);
+	return 1;
+}
+\end{lstlisting}
+
+The device function \lstinline[language=cuda]'dequeue' is responsible for ensuring the correct execution of tasks by individual \acsp{CTA} within the shared task queue.
+Its primary role is to guarantee that each task is executed exactly once, and that no two thread blocks attempt to process the same task concurrently.
+
+At the core of this mechanism lies the global queue pointer \lstinline[language=cuda]'d_tail', which identifies the next task to be executed.
+Since \lstinline[language=cuda]'d_tail' is shared across all \acsp{CTA}, it is constantly updated as blocks dequeue and complete tasks.
+To prevent inconsistencies caused by concurrent updates, the current value of \lstinline[language=cuda]'d_tail' is first copied into a block local variable \lstinline[language=cuda]'old_d_tail'.
+This snapshot ensures that the block works with a stable reference to the task index, even if other blocks advance the global pointer in parallel.
+
+Once the local index has been secured, a designated thread within the block attempts to claim ownership of the task using an atomic compare and swap \lstinline[language=cuda]'atomicCAS'.
+If the operation succeeds, the block has exclusive rights to execute the task, and the global pointer \lstinline[language=cuda]'d_tail' is atomically advanced to the next task index.
+If the claim fails, it means another block has already taken the task, and the current block terminates early.
+
+By following this procedure, the \lstinline[language=cuda]'dequeue' function ensures that:
+
+\begin{itemize}
+	\item Each task is mapped to a single thread block only.
+
+	\item No task is executed more than once.
+
+	\item Updates to the shared queue pointer remain consistent across all \acsp{CTA}.
+\end{itemize}
+Through the combined use of atomic operations and local snapshots of global state, the system maintains correctness even under highly concurrent execution across multiple streaming multiprocessors.
+
+
+
+\section{Architecture}
+
+The individual contributions explictely discussed are joined together in the following design architecture below. 
+The architectural aspects discuss previously are the main aspects of the work of this thesis, with additional tools and synchronization methods such as the mailboxes being used from the LightKernel project.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{1.0\linewidth}{!}{
+	  \input{figures/architecture.tex}
+  }
+  \caption{Persistent Thread Architecture implemented into LightKer}
+  \label{fig:architecture}
+\end{figure}
+
+
+The Figure~\ref{fig:architecture} depicts the individual components in a logical program architectural overview.
+The left side of the graphic shows the host side code and methods, which allow the enqueuing of tasks and launching of the persistent thread kernel.  
+On the right hand side of the graphic, the actual device side code allocation and kernel execution is depicted which allows the processing of memory and write back of results to the memory buffers.
+The mailboxes are constantly enqueuing and dequeuing new tasks throughout the execution of the kernels.
+
+\section{Further Implementation Considerations}
+
+\subsection{Serialization of Data for Memory Copies}
+
+Task memory written or read from memory first needs to be either serialized or deserialized, which requires manual GPU kernel wrappers.
+When a task is selected for execution, its parameters are deserialized from the input buffer, converted into an internal representation, and used to invoke the corresponding device function.
+After execution, the results of the computation are serialized back into the output buffer so they can be transferred to the host once the task is complete.
+
+This serialization/deserialization process acts as a bridge between the host managed task queue and the device executed kernels.
+By keeping inputs and outputs in a raw, buffer-based format, the system avoids the overhead of allocating separate memory for each task and instead reuses the preallocated memory partitions.
+At the same time, serialization ensures that heterogeneous tasks with different argument types can be uniformly stored and scheduled through the same queue mechanism.
+
+In practice, each task type requires a lightweight wrapper kernel responsible for unpacking its arguments, invoking the correct device function, and packing the results back into the buffer.
+While this introduces some additional development effort, it makes the overall system highly extensible: new task types can be supported simply by defining the corresponding wrapper without modifying the scheduler or memory manager.
+
+\subsection{Variable Launch Configurations}
+One of the weaknesses of persistent threads is the inabilty to change the launch configurations.
+Standard GPU kernel launches specify the thread configuration and grid layout of GPU threads executing the code and their physical placement in the architecture. 
+The GPU automatically decides the execution placement of the kernels from the Gigathread Engine during the launch of GPU code from the host. 
+As the persistent threads are already launched at program start, the configuration remains the same throughout the lifetime of the persistent thread. 
+Therefore these persistent threads can not support variable launch configurations at runtime without terminating the kernel and restarting a new kernel with different launch configurations.
+However, multiple different persistent kernels can be started with various kernel launch configurations, each with different task queues, or through code refactoring the kernels can be adapted to the existing GPU thread block organization.
 
 
