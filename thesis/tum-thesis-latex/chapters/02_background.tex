@@ -23,9 +23,10 @@ Early autonomous systems relied solely on \acs{CPU} based compute engines for sy
 For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, used 6 Pentium processors among which tasks were divided.
 The CPU centric design, combined with resource partitioning, enabled the system to satisfy real time requirements using established approaches. 
 
-These systems used CPU friendly execution tasks such as sensor fusion, localization, and path planning to meet execution latencies. 
-However, as \acsp{CNN} were increasingly used due to their high accuracy in perception tasks, CPUs struggled to continue performantly processing data in real time. 
-As \acsp{CNN} quickly became the dominant approach towards perception based tasks and the complexity of these models continued growing, \acsp{GPU} began to be increasingly integrated into these systems. 
+
+As deep learning techniques advanced, \acsp{CNN} began to outperform tradition methods in perception tasks such as object detection, lane recognition and environment understanding.  
+This shift necessitated the integration of \acsp{GPU} to handle the increased computational demands. 
+Early autonomous driving systems reliant on only CPUs struggled to continue performantly processing data with CNNs in real time. 
 One of the earliest projects using GPUs for autonomous driving, was NVIDIA in 2015, which used a GPU to train a CNN that could steer a car end to end from raw camera input. % https://arxiv.org/pdf/1604.07316
 Today, nearly all modern autonomous platforms, rely on GPUs for sensor processing, perception and decision making tasks. 
 
@@ -40,15 +41,16 @@ As a result, \acsp{GPU} can exploit the inherent task parallelism to significant
 
 %\cite{taskparallelism} for cuda api not supporting interruption
 
-\acsp{GPU} deliver the vast increase in throughput over CPUs, by simplifying the thread context in order to afford greater parallelism.
-They were originally developed to accelerate graphics rendering, a task heavy in parallizable computations, which require only a very simple control overhead. 
-The architecture thus adapted to accomodate an increasing number of threads, enabling support for larger graphics matrices. 
-These tasks required very little control overhead, which allowed the GPU threads to be very simple.
+\acsp{GPU} deliver a significant increase in throughput over CPUs, by simplifying the thread context in order to afford greater parallelism.
+Originally developed to accelerate graphics rendering, a task heavy in parallizable computations, GPU architectures were designed to support increasing numbers of threads. 
+Because these tasks required very little control overhead, GPU threads were intentionally kept simple avoiding the complex control logic found in CPU thread management.
 
-Althought the \acs{CPU} offers some parallelism, it is primarily optimized for sequential tasks, relying heavily on individual thread performance for tasks that cannot be parallelized.
-In order to achieve greater performance on these workloads, \acsp{CPU} dedicate a "significant portion of transistors to non computational tasks", which reduces overall throughput.
-These sequential tasks are greatly improved through complex control logic, such as prefetching, branch prediction, speculative execution and out of order execution, which all allow \acs{CPU} greater non parallel performance gains.  
-As a result, \acsp{CPU} generally have a higher clock rate than \acsp{GPU}, which forgo the control overhead in favor of increasing arithmetic intensity \cite{Owens2007-kp}.
+Although the \acs{CPU} offers some parallelism, it is primarily optimized for sequential tasks, relying heavily on the performance of individual threads. 
+To achieve greater performance on these tasks, \acsp{CPU} dedicate a substantial "portion of their transistors to non computational tasks", specifically control and memory management logic. 
+Features such as prefetching, branch prediction, speculative execution and out of order execution enable CPUs to efficiently handle irregular, sequeuntial control flows.
+However, this complextiy comes at the cost of reducing teh fraction of hardware dedicated purely to computation.
+In contrast, \acsp{GPU} minimize control overhead, instead allocating resources to maximize arithmetic throughput across many lightweight threads. 
+Consequently, \acsp{CPU} operate at higher clock rates, while \acsp{GPU} achieve higher throuhput by increasing arithmetic intensity \cite{Owens2007-kp}.
 
 Consider the following graphic Figure~\ref{fig:thread_complexity}, which highlights the difference in thread complexity. 
 
@@ -85,11 +87,12 @@ Consider the following graphic Figure~\ref{fig:thread_complexity}, which highlig
 Although core components are named differently, both CPU and GPU threads work similarily with an instruction decoder, registers and an arithmetic unit. 
 The differences arise when trying to maximize a single control flow. 
 In contrast to the \acs{CPU}, the \acs{GPU} threads execute instructions in order, rely on manual prefetching, and use a simpler, conservative branch predictor, which limits their ability to optimize single threaded performance.
-Instead of optimizing single threaded performance, \acs{GPU} achieve high throughput by executing thousands of lightweight threads in parallel, amortizing latency across them.
+Instead of optimizing single threaded performance, \acsp{GPU} achieve high throughput by executing thousands of lightweight threads in parallel, amortizing latency across them.
 This design favors workloads with high data parallelism, enabling the \acs{GPU} to hide memory and execution latencies through massive concurrency rather than complex control logic. 
 
 
-The additional complex logic that \acsp{CPU} use to improve single threaded applications outperforms the single threaded GPU applications, as seen by the following comparison of single threaded matrix multiplication in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}. These figures show the comparison of executing a matrix multiplication using only one GPU thread versus one CPU thread on a matrix multiplication task. 
+The additional complex logic that \acsp{CPU} use to improve single threaded applications outperforms the single threaded GPU applications, as seen by the following comparison of single threaded matrix multiplications in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}.
+These figures show the comparison of executing a matrix multiplication using only one GPU thread versus one CPU thread on a matrix multiplication task. 
 
 \begin{figure}[H]
   \centering 
@@ -112,24 +115,18 @@ The additional complex logic that \acsp{CPU} use to improve single threaded appl
 
 As seen in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}, GPUs struggle in applications that fail to utilize the architectural parallelism. 
 For each of the matrices tested, the CPU is on average around 13 times faster than the \acs{GPU}. 
-The \acs{GPU} should only be used in place of the \acs{CPU}, when the application is parallelizable and lacks complex control flow logic, otherwise the application is significantly delayed.
+Consequently, the \acs{GPU} should only be used in place of the \acs{CPU}, when the application is parallelizable and lacks complex control flow logic, otherwise the application will significantly underperform.
 
-For the context of this thesis, any scheduler running on the GPU employing complex control logic will incur significant latency overhead.  
-In general, scheduling decision, task management, and resource assignment, must follow a sequential control flow, as these processes lack inherent parallelism. 
-Consequently, efficient GPU task management often relies on a CPU side scheduler to handle task queuing and resource allocation, with the GPU side component primarily focused on dispatching tasks to available compute units. 
+For the purpose of this thesis, any GPU resident scheduler that employs complex control logic will introduce significant latency overhead. 
+Scheduling decisions, task management, and resource assignment are inherently difficult to parallelize, making them inefficient on GPU hardware.
+As a result, the scheduling logic is delegated to the CPU, where complex control mechanisms can be executed efficiently. 
+Consequently, the GPU's role is reduced to lightweight task dispatch and execution, while the CPU handles task queuing and resource allocation.
 
 
 \subsection{GPU Architecture}
 
 The NVIDIA Tesla V100 GPU, based on the Volta architecture, was selected for this project due to its availability and suitability for high performance computing workloads.  
-At a high level, the GPU features 5,120 CUDA cores, 640 Tensor Cores, delivering up to 7 TFLOPS of double precision performance. %https://images.nvidia.com/content/technologies/volta/pdf/tesla-volta-v100-datasheet-letter-fnl-web.pdf
-The system has 16 GB of \acs{VRAM} and provides 900GB/s of bandwidth between on-chip memory and device memory.
-The GPU interfaces with the host system over PCIe, allowing a theoretical maximum of 16GB/s for transfers between CPU memory and VRAM. 
-
-The performance of \acs{GPU} is often limited by the disparity between compute throughput and memory transfer rates. 
-While the GPU can execute arithmetic operations at extremely high speed, fetching and storing data from VRAM is comparatively slower, which can stall execution if memory accesses is not optimized.
-Even slower are the memory transfers between host and \acs{VRAM} and must be minimized to avoid further bottlenecks or stalls. 
-Understanding this imbalance is fundamental to design of efficient scheduling and memory access patterns, which are essential to fully exploit the device capabilities.
+In particular, this GPU is used for all related tests including Figure~\ref{fig:singlethreadedgraph}, Figure~\ref{fig:singlethreadedmatrix}, and the results in Chapter~\ref{chapter:Evaluation}.
 The following analysis of the V100's hardware architecture, will provide both the reasoning and implementation fundamentals for designing an efficient GPU scheduling strategy.  
 
 
@@ -143,14 +140,14 @@ By enforcing lockstep execution, the GPU can schedule and dispatch threads to co
 
 While lockstep execution enables efficient SIMD style throughput, it also introduces a potential performance hazard.
 If threads within a warp follow different control flow paths, these threads diverge, and the GPU is forced to execute these different threads sequentially with respect to one another.
-This serialization stalls part of the warp using masks, which disable the write back of the compute units.
-In effect, thread divergence, reduces the effective parallelism and degrades performance. 
+During this serialization, inactive threads in the warp are masked out, preventing them from writing results back to memory.
+The result is a reduction in effective parallelism, leading to degraded overall performance. 
 
 \subsubsection{SM Architecture}
 
-The Tesla V100 GPU \acs{SM} architecture, contains 4 processing partitions, each with its own complete execution pipeline.
+The Tesla V100 GPU \acs{SM} architecture contains 4 processing partitions, each with its own complete execution pipeline.
 These partitions share an L1 instruction cache as well as a combined L1 data and shared memory cache, enabling threads within different warps of the same \acs{CTA} to efficiently access shared instructions and data. 
-Within the each processing partition there is an L0 instruction cache, a warp scheduler, a dispatch unit, and multiple execution units.
+Within each processing partition there is an L0 instruction cache, a warp scheduler, a dispatch unit, and multiple execution units.
 An in depth view of each processing partition's architecture is provided in Figure~\ref{fig:processing_partition}, taken from the NVIDIA Volta Whitepages.
 
 \begin{figure}[H]
@@ -160,12 +157,15 @@ An in depth view of each processing partition's architecture is provided in Figu
   \label{fig:processing_partition}
 \end{figure}
 
-Every clock cycle, the warp scheduler selects a warp of 32 threads to issue to the dispatch unit, which dispatches decoded instructions to the appropiate functional units. 
+Every clock cycle, the warp scheduler selects a warp of 32 threads to issue to the dispatch unit, which dispatches decoded instructions to the appropriate functional units. 
 If there are not enough execution units of the required type for a given instruction, the instruction is queued. 
 Depending on the current queue and delays, such as global memory accesses or dependencies, the warp scheduler will interweave different instructions from other ready warps, ensuring that the execution units remain busy.
 This thread interweaving allows GPUs to hide latencies and resource contention through thread oversubscription.
-Beyond, the warp scheduler and dispatcher, each processing partition contains a number of execution units. 
-In particular, there are Tensor Cores for deep learning, 64 bit-\ac{FP} cores, \ac{LD/ST} units, a register file, and \acs{SFU}s for mathematical functions such as sine and square root. 
+
+In GPU scheduling, oversubscription can improve hardware utilization, though it introduces overhead.
+By scheduling more warps than can actively execute, the GPU can potentially interleave tasks and keeps resources busy during stalls.
+Whether this is beneficial depends on the workload goals: oversubscription increases throughput, but potentially adds latency for individual tasks.
+Real time workloads may benefit from oversubscription, but the level should be tuned to the system’s performance goals to ensure minimum timing guarantees.
 
 \subsubsection{SM Scaling and Thread Concurrency}
 Compared to CPU hardware threads, GPUs scale far more aggressively, supporting a much larger number of threads. 
