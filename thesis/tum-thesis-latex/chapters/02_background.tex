@@ -20,19 +20,19 @@ Prioritization in real time systems often requires preempting soft deadline or n
 \section{Integration of GPUs in Autonomous Driving Systems}
 
 Early autonomous systems relied solely on \acs{CPU} based compute engines for system control and task execution. 
-For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, used 6 Pentium processors among which tasks were divided.
+For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, used 6 Pentium processors among which tasks were divided \cite{Hoffmann_undated-qi}.
 The CPU centric design, combined with resource partitioning, enabled the system to satisfy real time requirements using established approaches. 
 
 
 As deep learning techniques advanced, \acsp{CNN} began to outperform tradition methods in perception tasks such as object detection, lane recognition and environment understanding.  
 This shift necessitated the integration of \acsp{GPU} to handle the increased computational demands. 
 Early autonomous driving systems reliant on only CPUs struggled to continue performantly processing data with CNNs in real time. 
-One of the earliest projects using GPUs for autonomous driving, was NVIDIA in 2015, which used a GPU to train a CNN that could steer a car end to end from raw camera input. % https://arxiv.org/pdf/1604.07316
+One of the earliest projects using GPUs for autonomous driving, was NVIDIA in 2015, which used a GPU to train a CNN that could steer a car end to end from raw camera input \cite{bojarski2016endendlearningselfdriving}. % https://arxiv.org/pdf/1604.07316
 Today, nearly all modern autonomous platforms, rely on GPUs for sensor processing, perception and decision making tasks. 
 
 The rapid adoption of \acs{GPU} into these systems depends heavily on their massive performance gain on highly parallel workloads, such as neural network inferencing and training. 
 Deep neural networks, inspired by the structure of the human brain, learn patterns through layers of weighted nodes.
-These nodes perform large numbers of matrix operations, tasks that are highly parallelizable and therefore perfectly suited for \acs{GPU} architectures.  % TODO How much gain maybe \cite{Kritzhevsky_undated-ao} or \cite{self_driving_learning}
+These nodes perform large numbers of matrix operations, tasks that are highly parallelizable and therefore perfectly suited for \acs{GPU} architectures \cite{Krizhevsky_undated-ao} \cite{self_driving_learning}.  % TODO How much gain maybe \cite{Kritzhevsky_undated-ao} or \cite{self_driving_learning}
 As a result, \acsp{GPU} can exploit the inherent task parallelism to significantly outperform \acsp{CPU} in both training and inference.
 
 
@@ -125,7 +125,7 @@ Consequently, the GPU's role is reduced to lightweight task dispatch and executi
 
 \subsection{GPU Architecture}
 
-The NVIDIA Tesla V100 GPU, based on the Volta architecture, was selected for this project due to its availability and suitability for high performance computing workloads.  
+The NVIDIA Tesla V100 GPU, based on the Volta architecture, was selected for this project due to its availability and suitability for high performance computing workloads \cite{nvidiawhitepaper}.
 In particular, this GPU is used for all related tests including Figure~\ref{fig:singlethreadedgraph}, Figure~\ref{fig:singlethreadedmatrix}, and the results in Chapter~\ref{chapter:Evaluation}.
 The following analysis of the V100's hardware architecture, will provide both the reasoning and implementation fundamentals for designing an efficient GPU scheduling strategy.  
 

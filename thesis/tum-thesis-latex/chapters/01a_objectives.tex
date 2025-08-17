@@ -19,7 +19,7 @@ Combined with limited prior experience in GPU programming and compiler theory, t
 
 To simplify the problem, the focus shifted from coroutines to the underlying execution model, persistent threads.
 No suitable open source implementation was found that could be directly integrated into an autonomous driving system. 
-Instead, a minimal, open source, custom persistent thread scheduler, LightKernel was found and extended to be suitable for real time scheduling. 
+Instead, a minimal, open source, custom persistent thread scheduler, LightKernel was found and extended to be suitable for real time scheduling \cite{lightker}. 
 The implementation originally only measuring scheduling overheads from kernel launches, but provided a foundation to implement fully functional persistent threads. 
 This new scheduler serves as a proof of concept foundation which implements long running GPU kernels to receive and execute tasks efficiently.
 Furthermore it provides the framework on which GPU coroutines can be implemented to enable suspension and prioritization between tasks, allowing exploration of how real time behaviors can be approximated within the constraints of the CUDA execution model.

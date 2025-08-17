@@ -4,11 +4,11 @@
 \chapter{Introduction}\label{chapter:introduction}
 
 \section{Motivation}
-Autonomous driving systems place stringent demands on computational performance, predictability and safety.
+Autonomous driving systems place stringent demands on computational performance, predictability and safety \cite{nvidia_auto}.
 These demands arise from the need to process vast amounts of sensor data and run complex perception and decision making algorithms in real time, while ensuring timely and deterministic responses to a dynamic environment.
 To meet the computational requirements of such systems, \acsp{GPU} have become essential due to their performance on machine learning workloads. 
-However, the current GPU programming and execution model is poorly suited to real time constraints. 
-The autnomous driving platform, Apollo, which serves as the primary motivation for this thesis, illustrates this challenge. 
+However, the current GPU programming and execution model is poorly suited to real time constraints \cite{elliott2011real}. 
+The autnomous driving platform, Apollo, which serves as the primary motivation for this thesis, illustrates this challenge \cite{Zhu2018BaiduAA} \cite{apollo}.
 While Apollo integrates GPU accelerated workloads, it does not natively provide real time GPU support.
 Although this thesis does not implement the proposed approach directly within Apollo, the challenges of meeting real time requirements in autonomous systems, particularly in GPU workloads, serve as the central motivation for this research.
 
@@ -21,7 +21,7 @@ In this manner, the distributed architecture allowed for fine tuning the timing 
 This modular architecture ensured responsiveness and real time guarantees at the expense of high hardware cost and increased system complexity.
 
 
-The rise of increasingly powerful GPUs has enabled a shift toward centralized computing in order to simplify the hardware and complexity while reducing costs. 
+The rise of increasingly powerful GPUs has enabled a shift toward centralized computing in order to simplify the hardware and complexity while reducing costs \cite{Tabani2021-gi}. 
 In this centralized architecture, all core driving modules share a common compute node consisting of a heterogeneous CPU-GPU system. 
 The compute node integrates a CPU for task scheduling and system control, which assigns compute heavy workloads to the GPU.
 Moving to a singular compute node allows savings in cost, design, and intermodule latency.
@@ -34,7 +34,7 @@ Typical real time solutions based on a \acs{CPU} architecture, ensure system saf
 Tasks requiring high responsiveness can then be directly executed after preemption of the resident processes.
 Although there already exists native support for this preemption on \acsp{CPU} within both the kernel and user space, \acsp{GPU} currently lack such capabilities. 
 
-Modern GPUs do not natively support real time programming models in the same way CPUs do.
+Modern GPUs do not natively support real time programming models in the same way CPUs do \cite{wang2024unleashingpowerpreemptiveprioritybased}.
 GPU execution is managed by a hardware scheduler that handles thread blocks, warps and memory accesses according to fixed, internal policies. 
 This internal GPU hardware scheduler is optimized for throughput rather than deterministic execution, required by real time systems. 
 In effect, programmers have limited control over the exact scheduling of threads or tasks, when using standard scheduling techniques. 

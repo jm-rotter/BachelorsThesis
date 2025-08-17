@@ -16,13 +16,13 @@ At runtime, the framework parses the \acs{DSL} into an \acs{AST}, which is then 
 From this intermediate representation, the compiler applies transformations and optimizations before compiling the code \acs{JIT} into GPU executable device code.
 
 Several projects demonstrate how these frameworks are applied in practice. 
-\textit{Mirage}, for example, improves large language inference by fusing kernels into a single megakernel.
+\textit{Mirage}, for example, improves large language inference by fusing kernels into a single megakernel \cite{mirage}.
 This achieves the same effect as persistent threads in removing extra kernel task scheduling overhead.
-Similarily, \textit{Halide} seperates algorithm specification from execution schedule, allowing compiler autoschedulers to optimize performance with minimal manual tuning. 
-Finally, \textit{Luisa} targets graphics and simulation workloads, offering acceleration structures, ray traversal APIs and shader abstraction to provide high level rendering code while retaining low level performance. 
+Similarily, \textit{Halide} seperates algorithm specification from execution schedule, allowing compiler autoschedulers to optimize performance with minimal manual tuning \cite{halide}.
+Finally, \textit{Luisa} targets graphics and simulation workloads, offering acceleration structures, ray traversal APIs and shader abstraction to provide high level rendering code while retaining low level performance \cite{luisa}. 
 
 Luisa, in particular, offers a model that can be adapted for real time applications. 
-Built on top of Luisa's execution model, \textit{LuisaCompute-Coroutines} extends the framework to support coroutines running on persistent threads. 
+Built on top of Luisa's execution model, \textit{LuisaCompute-Coroutines} extends the framework to support coroutines running on persistent threads \cite{luisacoro}. 
 Coroutines are expressed simply within the \acs{DSL} as explicit suspension points, which allow the device to preserve context and yield, enabling fine grained scheduling. 
 This approach is especially efficient and well suited for real time systesms, as it leverages asynchronous coroutine execution to improve responsiveness and resource utilization. 
 
@@ -30,9 +30,9 @@ This approach is especially efficient and well suited for real time systesms, as
 \section{Runtime Scheduling Frameworks}
 
 Beyond compiler based transformation and code generation, runtime based frameworks offer an alternative approach by enabling real time GPU scheduling.
-For example, \textit{RT-GPU}, a runtime system, provides deadline aware scheduling of GPU workloads by partitioning GPU resources. 
+For example, \textit{RT-GPU}, a runtime system, provides deadline aware scheduling of GPU workloads by partitioning GPU resources \cite{gheibifetrat2025rtgpurealtimecomputinggraphics}. 
 Using a reservation based model, RT-GPU enables fine grained control over scheduling to ensure the task deadlines are met. 
-Additionally, \textit{ROSGM} is a GPU management framework designed specificially for ROS 2 robotics systems.  
+Additionally, \textit{ROSGM} is a GPU management framework designed specificially for ROS 2 robotics systems \cite{rosgm}.  
 ROSGM interposes a layer to intercept the CUDA API calls and attach metadata to each GPU task, allowing custom deadlines and priorities to manage how GPU tasks are queued and issued to the device. 
 
 \vspace{\baselineskip}
