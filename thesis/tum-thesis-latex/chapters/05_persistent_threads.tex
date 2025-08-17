@@ -61,11 +61,11 @@ Once a kernel finishes execution, the device notifies the host, which then copie
 
 \section{Task Management System}
 
-For persistent threads to execute kernels at runtime, a staging mechanism is required to enqueue tasks and maintain the task context necessary for execution.  
+For persistent threads to execute kernels at runtime, a staging mechanism is required to enqueue tasks and preserve the task context needed for execution.  
 As discussed in Chapter~\ref{chapter:Background}, any task management system that relies on device side scheduling logic is inherently ineffecient due to characteristics of GPU architecture.
-Therefore, the task management system in this design adopts a host driven scheduling model, where tasks are prepared and dispatched from the CPU, while persistent threads on the GPU handle execution. 
-This approach enables better control over task odering, reduces idle time, and improves overall predictability, essential for real time workloads. 
-Furthermore, this system should be compatible with coroutine based execution and priority scheduling in the future. 
+To address this, the task management system in this design adopts a host driven scheduling model, where tasks are prepared and dispatched from the CPU, while persistent threads on the GPU handle execution. 
+This approach improves better control over task ordering, reduces idle time, and improves overall predictability, factors essential for real time workloads. 
+In addition, this system is designed to remain compatible with future extensions, including coroutine based execution and priority scheduling in the future. 
 
 
 \subsection{Task Queue Design}
@@ -80,54 +80,54 @@ Furthermore, this system should be compatible with coroutine based execution and
   \label{fig:taskqueuearchitecture}
 \end{figure}
 
-The architecture implemented into the persistent thread scheduler uses a loop through buffer, as a FIFO queue, in a producer-consumer architecture. 
-As shown in Figure~\ref{fig:taskqueuearchitecture}, each GPU task is represented as a clipboard, which contains the function context. 
-The context contains both the information needed to execute the device function, as well as metadata for the control of the task within the queue. 
-The host acts as a producer, enqueuing tasks into the task queue at the front, while the device consumes tasks from the back.
+The architecture implemented into the persistent thread scheduler uses a loop through buffer as a FIFO queue, following a producer consumer model. 
+As shown in Figure~\ref{fig:taskqueuearchitecture}, each GPU task is represented as a clipboard, which encapsulates the function context. 
+This context contains both the information required to execute the device function and metadata for to manage the task within the queue. 
+The host acts as a producer, enqueuing tasks into the front of the queue, while the device consumes tasks from the back.
 
-To improve the complex scheduling efficiency, all task enqueuing and dequeueing logic rests on the host side of the system. 
-Enqueuing a task involves copying its context into the task queue and initializing the associated control variables of the task within the function context. 
+To improve scheduling efficiency, all task enqueuing and dequeueing logic resides on the host side of the system. 
+Enqueuing a task involves copying its context into the task queue and initializing the associated control variables in the function context. 
 Before execution, the device simply checks the control variables to ensure that only valid tasks are executed. 
-Upon tasks being executed by a \acs{CTA}, the device block will advance the back pointer to the next available task within the queue. 
+Oncw a task is executed by a \acs{CTA}, the device block will advance the back pointer to the next available task in the queue. 
 
-To ensure that tasks are not overwritten, the host tracks the total number of tasks currently in the system in relation to the total length of the task queue.
-Every time a new task is added to the queue, the tracker is incremented, unless the queue is full, which results in a failure response, similar to the native CUDA system. 
-For the host to decrement the length tracker, the device must execute the task, notify the host, upon which the host can copy the results back. 
-After the results are copied back, a new task can then be enqueued to the same postion in the queue. 
+To prevent from being overwritten, the host tracks the total number of active tasks relative to the total length of the task queue.
+Every time a new task is added, the tracker is incremented unless the queue is full, in which case a failure response is returned, similar to the native CUDA system. 
+The tracker is decremented only after the device executes the task, notifies the host, and the host copies the results back.
+Once the results are retrieved, a new task can then be enqueued in the same postion in the queue. 
 
 
 
 \subsection{Extensibility for Coroutines and Priority Scheduling}
 
-The function contexts stored in the task queue buffer were specifically designed with the future implementations of coroutines and priority scheduling in mind. 
+The function contexts stored in the task queue buffer were designed with future extensions for coroutines and priority scheduling in mind. 
 By introducing additional control variables into the function context, the host system can assign tasks different priorities. 
-Furthermore, the queue already provides space to store the continuation of the coroutine, allowing a task to yield and record the current instruction for later resumption.
+In addition, the queue already provides space to store coroutine continuations, allowing a task to yield and record the current instruction for later resumption.
 
 Currently the system executes tasks in a loop using a synchronized busy waiting scheme.
-However with slight modifications, it can be extended to support priorities. 
+With slight modifications, however, it can be extended to support priorities. 
 If every task additionally contained a priority or deadline in its function context, the persistent threads polling active tasks could select and execute the most critical tasks first. 
 In this case, the host would need to actively track executing tasks to ensure they are not accidently overwritten.
 
 In conjuction with this system, the function context can also store the coroutine continuation.
 While precomputed values could be easily stored in the function context, capturing the resumption address is more challenging.  
-On the GPU it would be necessary to define specific set points within the program and save a variable in the function context that indicates the next instruction to be executed within the kernel. 
+On the GPU, this would require defining explicit set points within the program and saving a variable in the function context to indicate the next instruction to execute within the kenrel. 
 
 
 \section{Function Context}
 
-Each task entry defines its execution context through an explicit function identifier and its associated function parameters.
-This entry acts exactly like a coroutine continuation, which stores the necessary state to resume execution within the function. 
-The function id is used in conjuction with a lookup table to execute the GPU device code. 
-The memory location for the parameters is allocated by the host as part of the enqueuing and memory management systems.
+Each task entry defines its execution context through an explicit function identifier and the corresponding function parameters.
+This entry effectively serves as a coroutine continuation, storing the necessary state to resume execution within the function. 
+The function id is used in conjunction with a lookup table to dispatch and execute the appropriate GPU device code. 
+Meanwhile, the memory location for the parameters is allocated by the host as part of the enqueuing and memory management systems.
 
 \subsection{GPU Function Pointers}
 
-To execute new functions from the persistent threads, the task queue needs to be able to reference the specific function. 
-Generally referencing functions on a \acs{CPU} requires only the function pointer to execute the code defined at that memory location. 
-When GPU functions are compiled, the device code lives in the GPU address space and is not accessible from the CPU.  
-The CPU only has access to functions denoted by the \lstinline[language=cuda]`__global__` keyword, which allows the execution of GPU kernels, not enqueuing of GPU functions.
-In order to be able to access and run the functions specified by the CPU, the task queue supports a lookup table to map integers to specific functions.  
-The lookup table allows the host to memcpy in function ids to the task queue when enqueuing new tasks.
+To execute new functions from the persistent kernel, the task queue must be able to reference the specific function. 
+On a \acs{CPU}, this is typically achieved using a function pointer, which directly executes the code at a given memory location. 
+On a GPU, however, compiled device functions reside in the GPU address space and are not directly accessible from the CPU. 
+The CPU can only invoke functions marked with the \lstinline[language=cuda]`__global__` keyword, which launch GPU kernels, but not normal device GPU functions.
+As the system should execute asynchronously without any direct input from the GPU persistent thread, this thesis used a lookup table to match tasks to device functions. 
+When enqueuing new tasks, the host copies the corresponding function ID into the task queue, enabling the persistent kernel to dispatch the correct function.
 
 \subsection{Function Parameters}
 
@@ -147,11 +147,12 @@ Should the input memory be oversubscribed, the task then has a preallocated buff
 \section{Memory Management System}
 
 
-The memory management system supports the task queue, while eliminating unnecessary memory allocation and deallocation overheads. 
-By managing memory centrally, the task queue's function contexts can remain simple and flexible. 
-This memory system is managed for the lifetime of the persistent kernel, removing the need for costly dynamic memory operations at runtime.  
-While maintaining a memory buffer is simple, designing a runtime strategy to partition memory among tasks and reclaim it efficiently presents a more complex challenge. 
-To visualize this, Figure~\ref{fig:membuffer} shows the memory buffer logically partitioned into epochs, with each epoch containing input argument and output result buffers for the corresponding tasks.
+The memory management system supports the task queue while eliminating unnecessary memory allocation and deallocation overhead. 
+By handling memory centrally, the task queue's function contexts can remain simple and flexible. 
+This memory system is allocated for the lifetime of the persistent kernel, removing the need for costly dynamic memory operations at runtime.  
+Although maintaining a contigous buffer is simple, designing a runtime strategy to partition memory among tasks and reclaim it efficiently presents a more complex challenge. 
+As illustrated in Figure~\ref{fig:membuffer}, the buffer is logically partitioned into epochs enabling a cyclical allocation and deallocation strategy.
+Rather than freeing individual memory regions, an entire epoch is released once it becomes unused, after which it can be reused for new tasks. 
 
 
 \subsection{Memory Buffer Design}
@@ -167,38 +168,37 @@ To visualize this, Figure~\ref{fig:membuffer} shows the memory buffer logically 
 
 
 The memory management system consists of a single, logically partitioned memory buffer, designed to reduce the complexity of allocation algorithms. 
-Each epoch within this buffer contains both an input argument and output result section.
-The entire overhead of managing the position of task memory within the buffers is entirely managed by the host and shared with the device through the function context within the task queue. 
+Each epoch within this buffer contains both an input argument section and an output result section.
+The responsibility of managing the task memory positions within these buffers lies entirely with the host, which shares the information with the device through the function context in the task queue. 
+
+As tasks are allocated within the epochs, one of the corresponding memory buffer will eventually overflow. 
+When the host detects that allocating memory for a task would cause either the input or output buffer to overflow, allocation continues in the next epoch.  
+Once memory within an epoch has been fully allocated, it remains untouched by the scheduler until the buffer queue cycles back to that epoch.
+An epoch becomes available for reuse once all results from the tasks it contains have been copied back and the memory is marked free.
 
 
-As tasks are allocated within the epochs, eventually one of the corresponding memory buffer will overflow. 
-When the host detects that allocating memory for a task either results in the input or output buffer overflowing, the host begins allocation in the next epoch.  
-After fully allocating the memory for an individual buffer, that buffer remains untouched by the scheduler until the scheduler loops around the entire buffer queue and reaches the same epoch again.
-An epoch is free to schedule again when all results of tasks allocated within that epoch have been collected and marked as free.
-
-
-The host manages these epochs, by tracking the number of tasks within each epoch and the current offset within the current epoch. 
-To enqueue tasks input arguments are immediately loaded at the current offset within the current epoch. 
-Tasks are only considered as free after the memory has been copied back to the host and the host marks the epoch memory as freed. 
-When the buffer queue loops and returns, if the specific buffer parameters and memory size has been correctly set, potentially through profiling, the buffer will be free and can be reused.
+The host manages epochs by tracking the number of tasks within each epoch and the current offset of allocations.
+When enqueue tasks, input arguments are written at the current offset of the active epoch.
+Tasks are only considered complete after their results have been copied back to the host, and the host marks the corresponding epoch memory as freed.
+By the time the buffer queue loops back, provided the buffer parameters and memory sizes have been appropriately chosen, potentially through profiling, the epoch will be available for reuse.
 
 
 \subsection{CUDA Stream Optimization}
 
-As discussed in Chapter~\ref{chapter:Background}, modern GPUs feature two independent memory transfer engines to support bidirectional data movement between host and device.
+As discussed in Chapter~\ref{chapter:Background}, the Tesla V100 GPU features two independent memory transfer engines to support bidirectional data movement between host and device.
 One engine is dedicated to \acs{H2D} transfers, while the other handles \acs{D2H} transfers.
 These engines can operate concurrently, enabling overlap between data movement and computation if used correctly.
 
 To fully exploit this hardware capability, input and output transfers must be carefully organized.
 If tasks are enqueued into a single CUDA stream, transfers and kernel executions are serialized, causing the GPU to wait unnecessarily and leaving one of the transfer engines underutilized.
-To avoid this, the implementation employs multiple CUDA streams, separating concerns between input staging, output collection, and kernel execution.
+To avoid this, the implementation employs multiple CUDA streams, separating the input staging dependencies from output collection.
 
-Specifically, input arguments are transferred from the host to the device using a dedicated H2D stream, while task results are copied back to the host through a separate D2H stream.
-This separation prevents intra-stream dependencies between input and output operations, ensuring that transfers in opposite directions do not block one another.
+Specifically, input arguments are transferred from the host to the device using a dedicated \acs{H2D} stream, while task results are copied back to the host through a separate \acs{D2H} stream.
+This separation prevents intra stream dependencies between input and output operations, ensuring that transfers in opposite directions do not block one another.
 This design enables continuous execution of persistent threads: while one batch of tasks is being executed on the GPU, the next batch can be staged in device memory, and previously completed results can be copied back to the host.
 
 By combining the persistent task queue with a dual-stream transfer strategy, the scheduler achieves efficient utilization of both memory transfer engines and GPU compute resources.
-The result is a pipeline where host-to-device transfers, device computation, and device-to-host transfers proceed in parallel, minimizing idle time and maximizing throughput.
+The result is a pipeline where host-to-device transfers, device computation, and device-to-host transfers execute in parallel, minimizing idle time and maximizing throughput.
 
 \section{GPU Block Synchronization}
 
