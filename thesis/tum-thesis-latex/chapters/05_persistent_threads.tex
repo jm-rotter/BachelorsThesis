@@ -11,21 +11,20 @@ This section presents the design and implementation of that scheduler and the fo
 \section{Platform Integration: GPU Scheduling in Apollo}
 
 This thesis initially explored integrating LuisaCompute-Coroutines into Apollo, aiming to provide GPU coroutines to complement the existing CyberRT CPU coroutines.
-Similar to the CPU coroutines, these GPU coroutines were intended to deliver predictable execution latencies, with the added latency improvements that GPU persistent thread offer. 
+Similar to the CPU coroutines, these GPU coroutines were intended to deliver predictable execution latencies, with the added latency improvements that GPU persistent threads offer. 
 However, due to several integration barriers, including foreign build systems, sparse documentation, time constraints, and a limited familiarity with both projects, GPUs, and compiler theory, it became clear that integrating this system into Apollo would not be feasible within the scope of this thesis.
 
 With the LuisaCompute's coroutines approach impractical, the focus shifted to implementing manual GPU scheduling functionality. 
-By restricting the scope from full GPU coroutines to persistent threads within Apollo, this thesis sought an open source implementation that could provide fine grained scheduling control specific to Apollo. 
-Most persistent thread implementations, however, are highly application specific and not readily available, which led to selecting an implementation that required more work to make it feasible. 
-The only suitable open source implementation identified was LightKer, a research project designed to measure the speedup of using persistent threads compared to sequential kernel launches. 
-Implementing LightKer required a complete restructuring of the codebase to support a real time system. 
-Although full integration into Apollo and support for coroutines remains unfinished, this thesis extends the real time capabilities of LightKer.
+Finding no suitable open source implementation for coroutines, this thesis instead turned to persistent threads.
+Most existing persistent thread implementations are highly application specific and not readily available, which meant that adapting any implementation required substantial work.
+The only suitable implementation found was LightKer, a research project designed to measure the speedup of using persistent threads compared to sequential kernel launches. 
+To implement LightKer into a real time system, the project required a complete restructuring of the codebase. 
+Although full integration into Apollo and support for coroutines remains unfinished, this work extends the real time capabilities of LightKer and provides a foundation for future GPU coroutine integration.
 
-The LightKer implementation itself intended to measure the performance difference between sequential kernel executions and a persistent kernel implementation.
-It constructed simple, trivial kernels and compared the overhead of explicit host launched kernels versus implicit execution within the persistent kernel. 
-However, this application does not support variable tasks or runtime memory transfers, which are necessary to pass arguments and results back and forth. 
-As such, the implementation only provides real time support for host device synchronization through a mailbox system. 
-Nonetheless, the framework provided a fundamental foundation for the GPU scheduling model. 
+The LightKer implementation was primarily designed to measure the performance difference between sequential kernel executions and a persistent kernel implementation.
+It constructed simple, trivial kernels and compared the overhead of explicit host launched kernels versus implicit execution within the persistent kernel.
+However, the framework does not support runtime features necessary for a fully functional system.
+Nonetheless, it provides host device synchronization through a mailbox system and establishes a fundamental foundation for launching persistent kernels, which proved useful in enabling real time support for the system.
 
 \subsection{System Design}
 
