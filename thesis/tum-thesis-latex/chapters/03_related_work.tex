@@ -3,73 +3,41 @@
 \chapter{Related Work}\label{chapter:Related Work}
 
 
-The increasing use of GPUs in real time systems has led to the development of custom programming models desgned to reduce kernel launch overhead and improve predictable GPU scheduling.
+The increasing use of GPUs in real time systems has led to the development of custom programming models designed to reduce kernel launch overhead and improve predictable GPU scheduling.
 Such models are particularly useful in systems where minimizing execution latency, improving resource utilization, and mainting timing determinism is important.
-These approaches can generally be divided into three categories: compiler driven frameworks, runtime scheduling frameworks, and manual implementations.
+These approaches can be broadly categorized into compiler driven frameworks, runtime scheduling frameworks, and manual implementations, the latter of which is the focus of this work.
+
 
 \section{Compiler Driven Frameworks}
 
 Compiler driven frameworks optimize GPU workloads through automated code generation. 
-The application first provides the user with a simple \acs{DSL}, which abstracts away the low level device details. 
-At runtime, the framework's compiler parses the \acs{DSL} into an \acs{AST}, which is then converted into an \acs{IR}. 
-From this intermediate representation, the compiler transforms and optimizes the code, before being compiled \acs{JIT} into GPU executable device code.
+The user writes codes in a high level \acs{DSL} that abstracts low level device details.
+At runtime, the framework parses the \acs{DSL} into an \acs{AST}, which is then converted into an \acs{IR}. 
+From this intermediate representation, the compiler applies transformations and optimizations before compiling the code \acs{JIT} into GPU executable device code.
 
-One such project, \textit{Mirage} implements these ideas to improve large language model inference, by fusing kernels into a singular megakernel. 
-Similarily, \textit{Halide} provides a framework to automatically make scheduling decisions for users, by decoupling the algorithm from the execution schedule. 
-The execution schedule is then determined through compiler optimizations using autoschedulers that require minimal manual tuning.
-Lastly, \textit{Luisa} is structured similar to the other projects, but offers performance benefits specifically for  graphics and simulation workloads like ray tracing and rasterization. 
-Luisa has support for acceleration strucutures, ray traversal APIs, and shader abstraction, providing developers with high level rendering code, while retaining low level performance. 
+Several projects demonstrate how these frameworks are applied in practice. 
+\textit{Mirage}, for example, improves large language inference by fusing kernels into a single megakernel.
+This achieves the same effect as persistent threads in removing extra kernel task scheduling overhead.
+Similarily, \textit{Halide} seperates algorithm specification from execution schedule, allowing compiler autoschedulers to optimize performance with minimal manual tuning. 
+Finally, \textit{Luisa} targets graphics and simulation workloads, offering acceleration structures, ray traversal APIs and shader abstraction to provide high level rendering code while retaining low level performance. 
 
-Built on top of Luisa's execution model, \textit{LuisaCompute-Coroutines} extends the framework to support coroutines built on persistent threads. 
-Coroutines are expressed simply within the \acs{DSL} using suspension points. 
-These suspention points allow the device to preserve context and yield, allowing for fine grained scheduling. 
-In particular this approach is efficient and leverages itself for use in real time systems due to the asynchronous coroutine programming approach. 
+Luisa, in particular, offers a model that can be adapted for real time applications. 
+Built on top of Luisa's execution model, \textit{LuisaCompute-Coroutines} extends the framework to support coroutines running on persistent threads. 
+Coroutines are expressed simply within the \acs{DSL} as explicit suspension points, which allow the device to preserve context and yield, enabling fine grained scheduling. 
+This approach is especially efficient and well suited for real time systesms, as it leverages asynchronous coroutine execution to improve responsiveness and resource utilization. 
 
 
 \section{Runtime Scheduling Frameworks}
 
-Beyond compiler based transformations, runtime based frameworks provide an alternative approach by enabling real time GPU scheduling.
+Beyond compiler based transformation and code generation, runtime based frameworks offer an alternative approach by enabling real time GPU scheduling.
 For example, \textit{RT-GPU}, a runtime system, provides deadline aware scheduling of GPU workloads by partitioning GPU resources. 
-Using a reservation based model, RT-GPU enables fine grained control over scheduling to ensure the task deadlines. 
-Additionally, \textit{ROSGM} is a further GPU management framework designed specificially for ROS 2 robotics systems.  
-The ROSGM system interposes a layer to intercept the CUDA API calls to insert metadata for each GPU task.
-The API interception allows for custom deadlines and priorities that manage how GPU tasks are queued and issued to the device. 
+Using a reservation based model, RT-GPU enables fine grained control over scheduling to ensure the task deadlines are met. 
+Additionally, \textit{ROSGM} is a GPU management framework designed specificially for ROS 2 robotics systems.  
+ROSGM interposes a layer to intercept the CUDA API calls and attach metadata to each GPU task, allowing custom deadlines and priorities to manage how GPU tasks are queued and issued to the device. 
 
-\section{Manual Persistent Kernels}
+\vspace{\baselineskip}
 
-In addition to the other models, manual implementations support fine grained scheduling control specifically tuned to a single application. 
-For example, in scientific computing, simulators like \textit{HOOMD-blue} manually fuse multiple computation steps into a single persistent kernel.
-Furthermore, Jetson implemented GPU persistent threads to support their real time RedHawk Linux system.
-Unfortunately, this GPU persistent thread implementation is not open source. 
-These implementations offer low-level control and high efficiency, but demand significant expertise in GPU programming.
-
-\section{Platform Integration: GPU Scheduling in Apollo}
-
-This thesis aims to integrate GPU real time scheduling into the open source autonomous driving platform Apollo. 
-Apollo, developed by Baidu, relies on CyberRT, a real time platform to coordinate CPU task execution. 
-CyberRT manages the different driving modules within the system and coordinates cooperative asynchronous scheduling using coroutines. 
-The coroutine capability; however, does not extend to GPUs, which does not ensure their predictability. 
-
-Starting this thesis, I initially explored integrating LuisaCompute-Coroutines into Apollo, to provide the system with GPU coroutines to pair with the existing CyberRT CPU coroutines.
-Similar to the CPU coroutines, these GPU coroutines were intended to deliver the system predictable execution latencies, with the added benefits GPU persistent thread offer. 
-However, due to several integration barriers, including incompatible build systems, sparse documentation, and time constraints, it became clear that the integrating this system into Apollo would not be feasible within the scope of this thesis.
-
-Consequently, this work's focus shifted to a manual implementation of a GPU persistent thread scheduler using CUDA. 
-This change allowed me the opportunity to study the low level aspects of GPU scheduling from both an architectural and programming perspective.
-While lacking the automation and abstraction of a compiler driven implementation, this manual approach allows for finer application specific implementations.
-
-
-
-
-
-%Failing to implement LuisaCompute's coroutines into Apollo, the goal shifted to finding a manual GPU scheduling functionality to implement and use. 
-%In restricting the scope from GPU coroutines to simply implementing persistent threads into Apollo, this thesis attempted to find an open source implementation which would allow the fine grained scheduling controll specific to Apollo. 
-%Unfortunately, given that most persistent thread implementations are highly specific they are not open source, which led to selecting an implementation that required more work to make it feasible. 
-%The only open source persistent thread implementation that was readily available was LightKer, a research project, which measured the hypothetical speedup of using persistent threads over sequential kernel launches. 
-%Seeking to implement LightKer into Apollo first required a complete restructuring of the code base to support a real time system.
-
-%The LightKer implementation itself intended to measure the performance difference between sequential kernel executions versus a persistent kernel implementation.
-%This implementation constructed simple trivial kernels and tested the overhead difference between calling them explicitely from the host in kernel launches versus implicitely in the persistent kernel. 
-%Unfortunately, this application does not support variable tasks or memory transfers at runtime, necessary to pass arguments and results back and forth. 
-%As such, the implementation only succeeds in measuring latency differences between scheduling tasks using a device side while loop versus explicit kernel launches. 
-%However, the LightKer implementation does provide a simple framework for using a GPU-Host mailbox for scheduling kernel tasks as well as a helpful persistent kernel launch structure. 
+Overall, these frameworks demonstrate different approaches to achieving predictable GPU execution.
+Each of these frameworks relies on a form of high level user abstraction to manage scheduling and low level execution.
+While compiler and runtime systems simplify development through abstraction and automation, they do not allow for highly application specific fine tuning.
+Manual implementations, in contrast, enable this level of control and form the basis for the fine grained GPU scheduling explored in this thesis.

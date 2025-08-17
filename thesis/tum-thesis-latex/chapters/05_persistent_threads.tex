@@ -1,6 +1,33 @@
 % !TeX root = ../main.tex
 
-\chapter{Design and Implementation Requirements}\label{chapter:Persistent Threads}
+\chapter{System Design and Implementation}\label{chapter:Persistent Threads}
+
+This thesis initially aimed to bring GPU coroutine support to the open source autonomous driving platform Apollo, by implementing the LuisaCompute-Coroutines framework discussed in Chapter~\ref{chapter:Related Work}.
+The goal was to extend Apollo’s existing CPU coroutine infrastructure to GPUs, providing fine-grained, predictable scheduling for real-time tasks.
+However, due to integration challenges and the constraints of the project timeline, directly implementing LuisaCompute-Coroutines proved infeasible.
+Consequently, the scope shifted toward a manual implementation: a persistent thread scheduler for GPUs that lays the groundwork for coroutine support while still enabling fine-grained control over GPU execution.
+This section presents the design and implementation of that scheduler and the foundation it provides for future coroutine integration.
+
+\section{Platform Integration: GPU Scheduling in Apollo}
+
+This thesis initially explored integrating LuisaCompute-Coroutines into Apollo, aiming to provide GPU coroutines to complement the existing CyberRT CPU coroutines.
+Similar to the CPU coroutines, these GPU coroutines were intended to deliver predictable execution latencies, with the added latency improvements that GPU persistent thread offer. 
+However, due to several integration barriers, including foreign build systems, sparse documentation, time constraints, and a limited familiarity with both projects, GPUs, and compiler theory, it became clear that integrating this system into Apollo would not be feasible within the scope of this thesis.
+
+With the LuisaCompute's coroutines approach impractical, the focus shifted to implementing manual GPU scheduling functionality. 
+By restricting the scope from full GPU coroutines to persistent threads within Apollo, this thesis sought an open source implementation that could provide fine grained scheduling control specific to Apollo. 
+Most persistent thread implementations, however, are highly application specific and not readily available, which led to selecting an implementation that required more work to make it feasible. 
+The only suitable open source implementation identified was LightKer, a research project designed to measure the speedup of using persistent threads compared to sequential kernel launches. 
+Implementing LightKer required a complete restructuring of the codebase to support a real time system. 
+Although full integration into Apollo and support for coroutines remains unfinished, this thesis extends the real time capabilities of LightKer.
+
+The LightKer implementation itself intended to measure the performance difference between sequential kernel executions and a persistent kernel implementation.
+It constructed simple, trivial kernels and compared the overhead of explicit host launched kernels versus implicit execution within the persistent kernel. 
+However, this application does not support variable tasks or runtime memory transfers, which are necessary to pass arguments and results back and forth. 
+As such, the implementation only provides real time support for host device synchronization through a mailbox system. 
+Nonetheless, the framework provided a fundamental foundation for the GPU scheduling model. 
+
+\subsection{System Design}
 
 At a high level, there are four important components: the task queue, memory buffers, stream design, and gpu block synchronization.
 The task queue is managed, controlled, and allocated by the host and provides the arguments and tasks for the GPU to execute. 
