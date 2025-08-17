@@ -172,87 +172,86 @@ Compared to CPU hardware threads, GPUs scale far more aggressively, supporting a
 On the Tesla V100, there are 80 individual \acsp{SM}, each capable of supporting up to 64 resident warps.
 With 32 threads per warp, this yields $64 \times 32 = 2048$ threads per \acs{SM}. 
 Across all 80 \acsp{SM}, the theoretical maximum concurrency is $80 \times 2048 = 163{,}840$ resident threads.
-For comparison, a typical Intel Tiger Lake i5-1135G7 CPU has 4 cores with 2 hardware threads each, for a maximum of 8 concurrent hardware threads, while high end server CPUs, such as the Intel Xeon Gold 6148, only support 20 hardware threads.  
+For comparison, a typical Intel Tiger Lake i5-1135G7 CPU has 4 cores with 2 hardware threads each, for a maximum of 8 concurrent hardware threads. 
+High end server CPUs, such as the Intel Xeon Gold 6148, only support 20 hardware threads.  
 Although the \acs{GPU} oversubscribes the number of warps and threads to hide latencies, the total number of dispatch and scheduling units allow for a maximum of $4 * 32 * 80 = 10840$ instructions issued per cycle when the hardware is fully utilized. 
 
 
 In practice, this theoretical maximum is rarely achieved due to resource bottlenecks.
 All threads within an \acs{SM} share the same on-chip L1 data and shared memory cache, as well as the 256\,KiB on-chip register file ($16{,}384 \times 32$\, bit registers per processing partition, with four partitions per \acs{SM}).
 \acs{SM} threads all share the same on-chip L1 data and shared memory cache and the 256KiB on-chip register file ($16{,}384 \times 32$\, bit registers per processing partition, with four partitions per \acs{SM}).
-Depending on the kernel's resource usage, high register pressure will cause the kernel launch will fail. 
-Furthermore, if multiple thread blocks with high shared memory demands get scheduled to the same \acs{SM}, they will saturate the L1 data and shared memory cache and force frequent evictions and write backs to global memory.  
+Depending on the kernel's resource usage, high register pressure will cause the kernel launch to fail. 
+Furthermore, if multiple thread blocks with high shared memory demands get scheduled to the same \acs{SM}, they will saturate the L1 data and shared memory cache and force frequent evictions and write backs to the L2 cache or global memory.  
 These hardware limits must be carefully considered when mapping tasks to \acsp{SM}.
 
-The built-in hardware scheduler normally either handles these constraints or fails the kernel launch. 
-Implementing a custom scheduler on top of the hardware scheduler, requires consideration of these GPU limitations. 
-Forcing new scheduling behavior may conflict with or be constrained by the hardware scheduler’s own mechanisms.
+Native GPU code handles these constraints automatically without any needed input from the programmer.
+When launching kernels, the host, driver and device each analyze the programming configurations to see if the hardware can support the task. 
+Should the hardware fail, the launch silently fails with a \lstinline[language=cuda]'cudaError_t' return type. 
 
+However, building a GPU scheduler on top of this system introduces additional challenges.
+A custom scheduler must account for the same hardware constraints, thread limits, register pressure, shared memory, and occupancy, when mapping tasks to the GPU.
+At the same time, the scheduler operates within the bounds of the proprietary hardware scheduler, which already enforces its own resource allocation and dispatch policies.
+As a result, attempts to impose new scheduling behavior may conflict with or be restricted by the GPU’s built in mechanisms, limiting the degree of control available to the programmer.
 
 \subsubsection{Scheduling and Task Mapping}
 
-The specific mapping of tasks to \acs{SM}, \acs{TPC}, and \acs{GPC} is determined natively by the proprietary hardware scheduler, the GigaThread Engine. 
+Within the CUDA programming model, the specific mapping of tasks to \acsp{SM}, \acsp{TPC}, and \acsp{GPC} is determined natively by the proprietary hardware scheduler, the GigaThread Engine. 
 While the exact documentation is not public, this module maps \acsp{CTA} to the individual \acsp{SM} based a multitude of factors: hardware resources, parallelism, priorities, and dependencies.
 Similarly, the global memory and L2 cache utilization are determined by the hardware and transparent to the programmer.
 After the \acs{CTA} gets mapped to the specific \acs{SM}, the device code then executes till completion without interruption. 
 
 The \acsp{CTA} is entirely managed by the \acs{SM} on which it is currently executing. 
-As shown previously the \acs{SM} has its own execution pipelines, register files, shared memory and scheduling units on which the \acs{CTA} executes.
-For \acsp{SM} to communicate with one another, they must use either the global on-chip device \acs{HBM2} or through the global L2 cache which is shared and coherent across all \acsp{SM}.
-Although these memory accesses allows individual \acsp{SM} to communicate with each other, accesses require hundreds of cycles, which introduce further latencies when compared to local \acs{SM} L1 memory caches.
+As shown previously in Figure~\ref{fig:processing_partition}, the \acs{SM} has its own execution pipelines, register files, shared memory and scheduling units on which the \acs{CTA} executes.
+For \acsp{SM} to communicate with one another, they must use either the global on chip device \acs{HBM2} or the global L2 cache which is shared and coherent across all \acsp{SM}.
+Although the global memory allows individual \acsp{SM} to communicate with each other, accesses require hundreds of cycles, which introduce further latencies when compared to local \acs{SM} L1 memory caches.
 Ideally, the \acsp{SM} execute independently of one another and accumulate answers in global memory, skipping the high memory latency accesses of coordinating synchronous work.
 
 \section{GPU Programming using the CUDA API}
 
-NVIDIA \acsp{GPU} are intended to be used as computational accelerators for a host system, which manages and schedules tasks using CUDA. 
-In this model, the \acs{GPU} acts as a standalone processor with its own independent memory and execution pipelines. 
-For tasks to be scheduled on the GPU, the host process must first launch the process using the CUDA API. 
-The CUDA API is an extension of  C++, which allows the CPU to interact with the GPU. 
-Using CUDA, the host invokes device functions, called kernels, by specifying the number of threads and the memory parameters. 
-These kernel calls are asynchronous, meaning that once the host issues the command, the GPU executes it independently, while the CPU can continue with other work or synchronize later as needed. 
+NVIDIA \acsp{GPU} are designed as computational accelerators for a host system, which manages and schedules tasks using the CUDA programming model. 
+In this model, the \acs{GPU} acts as an independent processor with its own memory and execution pipelines. 
+For tasks to be scheduled on the GPU, the host process must first launch it through the CUDA API, an extension of C++ that enables CPU to communicate with and control the GPU. 
+
+Using CUDA, the host invokes device functions, called kernels, while specifying execution parameters such as the number of threads and memory configuration.
+These kernel launches are asynchronous, meaning that once the host issues the call, the GPU executes it independently, allowing the CPU to continue other work or synchronize with the GPU later as needed. 
 
 
 \subsection{Kernel Launches}
 
 The task of launching and running device code begins from a kernel launch, which passes the function, its parameters, pointers, and the grid and block dimensions to the \acs{GPU}.
-The launch configuration specifies the number of \acsp{CTA} and their logical organization into dimensions.
+The launch configuration specifies the number of \acsp{CTA} and their logical dimensional organization.
 Every block is then mapped to a single \acs{SM} and is constrained by that \acs{SM}’s hardware resources, including the maximum number of threads, registers, resident warps, and available shared memory. 
 If no available \acs{SM} can meet these requirements, the kernel launch will fail.
 Conversely, if a \acs{CTA} does not fully saturate the hardware resources of an \acs{SM}, additional further blocks may be scheduled concurrently on the same \acs{SM}.  
 
-\subsection{Memory and Bandwidth Considerations}
+\subsection{Host to GPU Memory Transfers and Bandwidth Considerations}
 
+Both the GPU and CPU maintain distinct memory regions to match their respective architectural and performance requirements.  
+CPU memory is optimized for low latency access to efficiently handle serial and branch intensive workloads.
+GPU memory, on the other hand, is designed for high throughput, allowing thousands of threads to execute in parallel while tolerating higher latency per access.
 
-Both the GPU and CPU maintain distinct memory regions for different hardware architectural and performance reasons.  
-CPU memory is optimized for low latency access to support serial and branch heavy workloads, while GPU memory is optimized for extremely high bandwidth to sustain thousands of parallel threads, accepting higher latency in exchange.
-These memories are connected by an interconnect such as PCIe or NVLink, whose bandwidth is far lower than that of the GPU’s local memory, making constant access to host memory impractical without significant performance loss.
-By keeping data local, each processor can operate at full efficiency, and the GPU can execute kernels independently without frequent synchronization with the CPU.
-This separation is thus a deliberate design choice to match each processor’s optimization goals, avoid bottlenecks from the limited interconnect speed, and enable independent execution.
-
-
-As the memory regions are distinct, for the GPU to support the CPU with tasks, the CPU needs to use CUDA to allocate and send data to the GPU memory.
-When transferring data from the host, the CUDA API does not have access to the \acs{CPU}'s disk memory and requires the memory to be pinned to the \acs{CPU}'s \acs{RAM}.
-While the CUDA runtime can perform this pinning automatically, host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` skip the added step of pinning memory and enable faster transfers. 
-Particularity in applications that are bandwidth bottlenecked, this added transfer latency is significant.
-If the pinned memory is too large; however, it restricts the memory availability for the programs currently running on the \acs{CPU}, which may degrade performance by forcing the swapping of memory to disk storage. 
+Since the memory regions are distinct, the CPU must explicitely allocate and transfer data to the GPU using the CUDA API.
+Transfers require the CPU memory to be pinned in RAM, as CUDA cannot directly access the disk.
+While the CUDA runtime can automatically pin memory, automatically, host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` eliminates this extra step and enables faster transfers.
+However, allocating excessive pinned memory reduces the RAM availbale to other CPU processes, potentially causing paging and degrading system performance. 
+Careful management of pinned memory is therefore essential for amximinzing data transfer efficiency without negatively impacting the host system. 
 
 In CUDA, understanding how memory is transferred and managed across the host and the device is crucial for optimizing performance.  
-For the programmer, the device memory is partitioned into main memory, the \acs{VRAM}, with a size of 16 GB on the Tesla V100 architecture, as well as on chip memory. 
-The programmer can decide between three different models of memory management \lstinline[language=cuda]`__constant__`, \lstinline[language=cuda]`__device__`, and \lstinline[language=cuda]`__shared__` memory.
+The device memory consists of a global 16 GB block on the Tesla V100 architecture as well as on chip processor memory. 
+To improve memory performance, the programmer can leverage three different models of memory management \lstinline[language=cuda]`__constant__`, \lstinline[language=cuda]`__device__`, and \lstinline[language=cuda]`__shared__` memory.
 Both constant and device memory are allocated to the global memory, with constant memory only being writeable by the \acs{CPU} and allowing faster access times due to the reduced coherency required.
 The shared memory is shared among all warps and threads of a given \acs{SM} in the L1 data and shared memory cache.  
-This memory is far more performant than device memory, but limited in size, due to its location on chip.
 
 
 \subsection{Memory Coalescing}
 
-For the GPU to coalesce memory operations and enable SIMD-style execution across multiple data points, each thread maintains registers that store its execution context, including its position in the grid. 
+For the GPU to coalesce memory operations and enable SIMD-style execution across multiple data points, each thread maintains registers that store its execution context, including its position within the kernel and executing \acs{CTA}. 
 In PTX, these special registers provide unique identifiers such as threadIdx and blockIdx, which indicate a thread’s coordinates within its block and a block’s coordinates within the grid.
 These identifiers are essential for structuring parallel computations and optimizing memory access patterns.
 For example, when threads within a warp access consecutive memory locations, the hardware can coalesce those accesses into a single memory transaction, significantly improving throughput.
 
 
 \subsection{Example Kernel Launch}
-
 
 Consider the following example program, which allocates device memory and launches a kernel consisting of one block and 32 threads. 
 
@@ -279,44 +278,39 @@ int main() {
 }
 \end{lstlisting}
 
-The code block above depicts the launching and execution of a simple GPU kernel that demonstrates the memory allocation scheme used for executing kernel code.
-The kernel itself is the execution of the \acs{GPU} device program denoted by \lstinline[language=cuda]`__global__` function, while the \lstinline`<<<_, _>>>` syntax enables the programmer to specifically partition their execution tasks across waiting threads. 
-The first value in the \lstinline`<<<1,32>>>` determines the block dimensions, which are either given as an array or a 3 dimensional tensor. 
-Similarily, the second value determines the thread dimensions in the same format as the block dimension. 
+The code block above depicts the launching and execution of a simple GPU kernel as well as the memory allocation scheme used for executing kernel code.
+The kernel itself is the execution of the \acs{GPU} device program denoted by the \lstinline[language=cuda]`__global__` function, while the \lstinline`<<<_, _>>>` syntax enables the programmer to specifically partition their execution tasks across waiting threads. 
+The values in \lstinline<<<1,32>>> specify the grid and block dimensions, determining how many blocks are launched and how many threads execute per block. 
+These dimensions can be given as integers or as a dim3 struct for 1D, 2D, or 3D layouts.
 In particular, this code allocates a singular block with an array of 32 threads, which completely saturates a singular warp. 
-These dimensional vectors allow the different threads to maintain lockstep execution, while processing different values of the same array, as seen by using the dimensional properties assigned to the individual threads by the runtime system. 
+These dimensional vectors allow the different threads to maintain lockstep execution, while processing different sections of the same array. 
+This is done by using the dimensional properties assigned to the individual threads by the runtime system. 
 
 The main function, executed by the \acs{CPU} or host, initializes the parameters, executes the kernel and then copies the memory back. 
-The host array, \lstinline[language=C++]`h_x` is allocated to the stack, which exists only in \acs{CPU} memory, which needs to be passed to the \acs{GPU}.
-Passing the array by value, something common in C++ code, seems at first the most simple; however, poses two seperate issues.
-Firstly, when passing arrays as parameters, they decay to pointers, which CUDA forbids, as the pointer passed to the device does not have any meaning.
+The host array, \lstinline[language=C++]`h_x` is allocated to the CPU stack, which is explictly copied to the \acs{GPU}.
+Trying to Passing the array by value, something common in C++ code, seems at first the most simple; however, poses two seperate issues.
+Firstly, when passing arrays as parameters, they decay to pointers, which CUDA forbids, as the pointer address passed to the device does not have any meaning on the GPU.
 Secondly, if the array were wrapped in a struct and passed to the function to circumvent the first issue, the array would be allocated to every single thread independently. 
 In the example above, the array would be allocated 32 times, each independent from one another, taking up further memory bandwidth and both on chip and global device memory. 
 In this case, each individual thread, would get the array passed by value, leading to a total 32 threads * 1024 floats * 4 bytes per float or 128KiB. 
-Instead, them memory is allocated in the device memory, transferred once and each thread recieves only the device pointer \lstinline[language=C++]`d_x`, which can be used to copy the results back to the host.  
-
-
-
+Instead, the memory is allocated in the device memory, transferred once and each thread recieves only the device pointer \lstinline[language=C++]`d_x`, which can be used to copy the results back to the host.  
 
 
 \subsection{CUDA Streams}
 
 CUDA API calls are queued to the \acs{GPU} using cuda streams, which enforce the execution order of tasks.
-\lstinline[language=cuda]{cudaStream_t} defines a command queue for the GPU, which is similar to a Linux file pointer in that it returns an index referring to the specific allocated stream.
-Each stream allows the queuing of operations such as kernel launches, memory copies, and memory set operations.
+A stream, represented by the type \lstinline[language=cuda]{cudaStream_t} acts as a handle to a specific command queue, similar to how a Linux file pointer in Linux refers to a particular file descriptor.
+Within a stream, operations such as kernel launches, memory copies, and memory set operations are enqueued and executed strictly in the order they are issued, ensuring deterministic behaviour.
 Commands submitted to the same stream are executed sequentially in the order they were issued, ensuring deterministic behavior within that stream.
-Multiple streams, however, can run concurrently, enabling overlapping execution of kernels and memory operations to maximize GPU utilization and improve overall performance.
-By carefully managing streams, developers can optimize task parallelism and resource usage on the GPU.
+When using multiple streams, the GPU can execute operations concurrently, allowing kernels and memory operations to overlap.
+By carefully managing streams, developers can expose task parallelism, reduce idle time, and more effectively use GPU resource.
 
 The Tesla V100 GPU has two seperate hardware copy engines for copying data from the host to the device and back. 
 The copy engines support the transfer in both directions, with one engine specifically being allocated for the unidirectional \acs{D2H} transfer and the other for \acs{H2D}.
 Using only one stream for multiple kernels fails to maximize the device memory bandwidth. 
 For example, consider the launch of two independent kernels, kernel A and kernel B, each on the same CUDA stream. 
 Both A and B, allocate and copy memory onto the device, schedule their kernels and then copy the results back. 
-Regardless of the ordering of API calls, both kernels can not run simultaneously or use both \acs{H2D} and \acs{D2H} copy engines simultaneously.
-
-To best utilize the hardware and ensure correct results, a different stream need to be used for each synchronous kernel launch.  
-Each kernel must remain in the same stream as the memory copys related to that stream in order to ensure the arguments used by the kernel are accurate and that the results are not prematurely returned. 
-By placing each kernel in its own stream, the CUDA API, depending on the time and specific situation run multiple kernels, run kernels and memory transfers, or perform both \acs{D2H} and \acs{H2D} API calls simultaneously.
+Regardless of the ordering of the API calls, the two kernels cannot execute concurrently or share the hardware copy engines, since their execution is serialized by being placed in CUDA stream.
+To maximize hardware utilization and ensure correctness, each kernel and its associated memory transfers should be placed in the same dedicated stream, allowing the CUDA runtime to safely overlap kernel execution, memory copies, and bidirectional transfers when possible.
 
 \input{chapters/04_coroutines.tex}
