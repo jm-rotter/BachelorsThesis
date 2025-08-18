@@ -41,7 +41,7 @@ In particular, the benchmark uses matrix multiplications of a fixed size, 16 x 1
 Typically, the programmer specifies kernel thread configurations at launch; however, this is not possible with persistent threads.
 Their configuration is fixed at launch and cannot be changed during execution.
 In practice, such values need to be determined by profiling the workload and implementing them manually.
-Since performance improves when the number of threads matches or exceeds the number of elements in the solution matrix, this implementation uses a 16×16 matrix with a 16×16 grid dimensionality.
+Since performance improves when the number of threads matches or exceeds the number of elements in the solution matrix, this implementation uses a matrix with a 16×16 grid dimensionality.
 
 \subsection{Simulated Workload for Testing}
 
@@ -64,16 +64,16 @@ By contrast, the matrix multiplication benchmark executes tasks serially in an a
 
 
 Figure~\ref{fig:sm_sk} presents the first experiment, comparing task scheduling using the GPU persistent kernel against the baseline model. 
-Here, each implementation executes 32 tasks of 16x16 matrix multiplication tasks scheduled to the GPU. 
+Here, each implementation executes 32 16x16 matrix multiplication tasks scheduled to the GPU. 
 The matrices for testing are generated at runtime and compared to the correct CPU implementation using the same functions.  
 
-Across 10,000 runs, the persistent kernel achieved an execution time of 207.12 ms, compared to 229.60 ms for the baseline model. 
-This demonstrates a clear performance advantage for the persistent kernel in cases where small kernels are used with modest memory transfers. 
+Across 10,000 runs, the persistent kernel averaged achieved an execution time of 207.12 ms, compared to 229.60 ms for the baseline model. 
+This demonstrates a clear performance advantage for the persistent kernel in cases where small kernels are used with small memory transfers. 
 However, the measurements exhibited high variability, with execution times differing by as much as $\pm$50 ms between runs, even when averaged over 10,000 executions.
 Despite this variability, the persistent kernel consistently outperformed the baseline in trials.
 
 
-\subsection{Latency Measurements with large Memory Transfers}
+\subsection{Latency Measurements with Large Memory Transfers}
 
 \begin{figure}[H]
   \centering
@@ -85,19 +85,19 @@ Despite this variability, the persistent kernel consistently outperformed the ba
 In this secondary evaluation, the GPU executes the same task as before but with an additional 1 MiB of memory transferred to and from each task.
 Interestingly, the persistent thread implementation ran slightly faster than in the previous test, while the baseline control became significantly slower.
 For reference, the persistent kernel completed in 178 ms, compared to 350 ms for the non-persistent version.
-This unexpected outcome prompted further testing with a larger input size of 10 MiB, which completed in 623.915ms.
+This unexpected outcome prompted further testing with a larger input size of 10 MiB for the persistent kernel implementation, which completed in 623.915ms.
 
 The performance improvement is likely attributable to the underlying memory management strategy. 
 To conserve GPU resources, memory buffers are partitioned logically using offsets.
 When tasks use very small memory frames, their data is placed closely together in memory.
-During execution, this proximity can lead to contention: tasks from memory locations adjacent to those being written to by other tasks may experience reduced performance.
+During execution, this proximity can lead to contention: tasks from memory locations adjacent to those being written to by other tasks may experience reduced performance as memory operations are serialized.
 By increasing the memory size transferred per task, the allocated regions are spaced farther apart, reducing contention and allowing the kernel to execute more efficiently.
 
 \section{Multiple GPU Blocks}
 
 Unfortunately, particularly in the case of running multiple GPU blocks, the memory copying errors were observed with a much higher frequency. 
 As the GPU blocks were polling more frequently and able to consume tasks more quickly, they had faulty, uninitialized parameters.  
-The results from this test failed too often to support any claims. 
+The results from this test failed too often to support any significant data. 
 
 
 \chapter{Conclusion and Future Work}

@@ -17,7 +17,7 @@ However, due to several integration barriers, including foreign build systems, s
 With the LuisaCompute's coroutines approach impractical, the focus shifted to implementing manual GPU scheduling functionality. 
 Finding no suitable open source implementation for coroutines, this thesis instead turned to persistent threads.
 Most existing persistent thread implementations are highly application-specific and not readily available, which means that adapting any implementation requires substantial work.
-The only suitable implementation found was LightKer, a research project designed to measure the speedup of using persistent threads compared to sequential kernel launches. 
+The only suitable implementation found was LightKer, a research project designed to measure the speedup of using persistent threads compared to sequential kernel launches \cite{lightker}. 
 To implement LightKer into a real-time system, the project required a complete restructuring of the codebase. 
 Although full integration into Apollo and support for coroutines remain unfinished, this work extends the real-time capabilities of LightKer and provides a foundation for future GPU coroutine integration.
 
@@ -88,7 +88,7 @@ The host acts as a producer, enqueuing tasks into the front of the queue, while 
 To improve scheduling efficiency, all task enqueuing and dequeueing logic resides on the host side of the system. 
 Enqueuing a task involves copying its context into the task queue and initializing the associated control variables in the function context. 
 Before execution, the device simply checks the control variables to ensure that only valid tasks are executed. 
-Once a task is executed by an \acs{CTA}, the device block will advance the back pointer to the next available task in the queue. 
+Once a task is executed by a \acs{CTA}, the device block will advance the back pointer to the next available task in the queue. 
 
 To prevent being overwritten, the host tracks the total number of active tasks relative to the total length of the task queue.
 Every time a new task is added, the tracker is incremented unless the queue is full, in which case a failure response is returned, similar to the native CUDA system. 
@@ -123,7 +123,7 @@ Meanwhile, the memory location for the parameters is allocated by the host as pa
 
 \subsection{GPU Function Pointers}
 
-To execute new functions from the persistent kernel, the task queue must be able to reference the specific function by name. 
+To execute new functions from the persistent kernel, the task queue must be able to reference the specific function . 
 On a \acs{CPU}, this is typically achieved using a function pointer, which directly executes the code at a given memory location. 
 On a GPU, however, compiled device functions reside in the GPU address space and are not directly accessible from the CPU. 
 The CPU can only invoke functions marked with the \lstinline[language=cuda]`__global__` keyword, which launch GPU kernels, but not standard device GPU functions.
@@ -133,8 +133,8 @@ When enqueuing new tasks, the host copies the corresponding function ID into the
 \subsection{Function Parameters}
 
 When the CPU assigns tasks to the GPU, it passes either allocated GPU memory pointers or explicit parameters to the GPU. 
-These explicit parameters are then propagated to all the individual threads executing the kernel code, resulting in greater API memory overhead. 
-When enqueuing new tasks to the task queue, the memory has to be transferred at runtime before the device function calls. 
+These explicit parameters are then propagated to all the individual threads executing the kernel code, resulting in significant API memory overhead. 
+In particular this approach results in variable memory utilizations and does not provide any standardization mechanism to encapsulate function contexts. 
 
 The GPU task in the queue originally had a pointer to the allocated memory, and upon receiving compute resources, would schedule the task with the memory to the individual persistent thread.
 Unfortunately, this method is dependent on the specific task and parameters, and it consumes variable memory, requiring further pointers to GPU memory.  
@@ -143,12 +143,12 @@ To consolidate memory pointers, the task queue was simplified to contain only al
 In this method, enqueuing GPU tasks forces the programmer to streamify the data and automatically load it into preallocated memory partitions. 
 The task queue then only consists of the actual memory partition pointers, both start and end. 
 Executing a task then requires the interpretation of the memory and loading it into the device's function.
-Should the input memory be oversubscribed, the task then has a preallocated buffer to store any updated context for the continuation of the coroutine. 
+Should the input memory be oversubscribed, the task then has a preallocated buffer to store any further context for the continuation of the coroutine. 
 
 \section{Memory Management System}
 
 
-The memory management system supports the task queue while eliminating unnecessary memory allocation and deallocation overhead. 
+The memory management system supports the task queue and task parameters while eliminating unnecessary memory allocation and deallocation overhead. 
 By handling memory centrally, the task queue's function contexts can remain flexible and straightforward. 
 This memory system is allocated for the lifetime of the persistent kernel, removing the need for costly dynamic memory operations at runtime.  
 Although maintaining a contiguous buffer is simple, designing a runtime strategy to partition memory among tasks and reclaim it efficiently presents a more complex challenge. 
@@ -240,12 +240,12 @@ __device__ int dequeue(volatile mailbox_elem_t * from_device){
 		return terminate;
 	}
 
-	__syncthreads();
 	bool execution = execute(d_task_queue[old_d_tail]);
 
 	d_task_queue[old_d_tail].executing = 0;
 
-    DeviceWriteMyMailboxFrom(THREAD_FINISHED);
+	DeviceWriteMyMailboxFrom(THREAD_FINISHED);
+
 	return 1;
 }
 \end{lstlisting}
@@ -258,7 +258,7 @@ Since \lstinline[language=cuda]'d_tail' is shared across all \acsp{CTA}, it is c
 To prevent inconsistencies caused by concurrent updates, the current value of \lstinline[language=cuda]'d_tail' is first copied into a block local variable \lstinline[language=cuda]'old_d_tail'.
 This snapshot ensures that the block works with a stable reference to the task index, even if other blocks advance the global pointer in parallel.
 
-Once the local index has been secured, a designated thread within the block attempts to claim ownership of the task using an atomic compare and swap \lstinline[language=cuda]'atomicCAS'.
+Once the local index has been secured, a designated thread within the block attempts to claim ownership of the task using an atomic compare and swap, \lstinline[language=cuda]'atomicCAS'.
 If the operation succeeds, the block has exclusive rights to execute the task, and the global pointer \lstinline[language=cuda]'d_tail' is atomically advanced to the following task index.
 If the claim fails, it means another block has already taken the task, and the current block terminates early.
 
@@ -297,4 +297,6 @@ Standard GPU kernels specify the thread configuration and grid layout of GPU thr
 The GPU automatically decides the execution placement of the kernels from the Gigathread Engine during the launch of GPU code from the host. 
 As the persistent threads are already launched at program start, the configuration remains the same throughout the lifetime of the persistent thread. 
 Therefore, these persistent threads can not support variable launch configurations at runtime without terminating the kernel and restarting a new kernel with different launch configurations.
-However, multiple persistent kernels can be started with various kernel launch configurations, each with a varying queue of tasks. Through code refactoring, the kernels can also be adapted to the existing GPU thread block organization.
+However, multiple persistent kernels can be started with various kernel launch configurations, each with a varying queue of tasks. 
+Through code refactoring, the kernels can also be adapted to the existing GPU thread block organization.
+Unfortunately, for the same reason, tasks extending across multiple GPU thread blocks need to be divided into multiple tasks. 

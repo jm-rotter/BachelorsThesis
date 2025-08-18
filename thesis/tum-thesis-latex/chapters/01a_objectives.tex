@@ -38,7 +38,7 @@ This thesis designs and implements several persistent thread components to enabl
 
 	\item \textbf{Memory Management System:}
 		To eliminate memory allocations throughout the runtime of the persistent kernel, a memory management system was designed.	
-		Tasks inserted into the task management utilize the memory management systems for their associated memory allocations.
+		Tasks scheduled to the persistent kernel utilize the memory management system for their associated memory allocations.
 		In this system, memory is mapped into a running epoch buffer of preallocated memory assigned before the launch of the persistent kernel. 
 		This system also provides a logical partitioning of input and output buffers to reduce data interdependencies.
 

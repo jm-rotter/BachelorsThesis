@@ -46,7 +46,7 @@ Particularly in the context of autonomous driving, the repercussions of latencie
 \section{Problem Statement}
 
 Rather than relying on native kernel launches, this thesis investigates the use of persistent threads to enable low-latency execution and develops the foundational framework needed to integrate coroutines into the system for further real-time determinism.
-Persistent threads are specialized kernels that are launched at the start of the application and remain active throughout the system's lifetime. 
+Persistent kernels are specialized functions that are launched at the start of the application and remain active throughout the system's lifetime. 
 They function as a user-level scheduler, continuously polling for work, executing tasks, and executing scheduling decisions. 
 
 Building on this framework, the central research question addressed in this thesis is:

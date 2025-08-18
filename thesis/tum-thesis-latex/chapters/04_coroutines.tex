@@ -22,7 +22,7 @@ This ability to strategically pause and resume execution makes coroutines well-s
 \subsubsection{CPU Coroutines in Apollo}
 
 Coroutines on the CPU are implemented using the native x86 calling conventions and the program stack to save and restore continuations dynamically.
-Under x86 convention, when a function is invoked, the CPU pushes the return address, the location after the next instruction after the call, onto the stack before jumping to the target function.
+Under x86 convention, when a function is invoked, the CPU pushes the return address, the location of the next instruction after the call, onto the stack before jumping to the target function.
 The called function accesses its local variables through the stack and registers, which are divided into two categories: volatile, caller saved, and non-volatile, callee saved.
 The callee may freely modify volatile registers, while callee saved registers must be preserved and restored before the function returns.
 
@@ -31,7 +31,7 @@ To implement coroutine behaviour, however, the function must be able to yield an
 This requires saving the callee-saved registers, since their preservation is guaranteed, as well as any additional state such as local variables or registers, that is necessary for continued execution.
 These elements can be stored on the stack, allowing a coroutine to pause and continue seamlessly later. 
 
-The Apollo project demonstrates this mechanism by implementing CPU coroutines directly on top of the x86 calling convention, as illustrated in the following example. 
+The Apollo project demonstrates this mechanism by implementing CPU coroutines directly on top of the x86 calling convention, as illustrated in the following code block. 
 
 \begin{lstlisting}[language=x86asm,caption={CPU Coroutine}, label={lst:coro}]
 ctx_swap:
@@ -73,7 +73,7 @@ Instead, their execution state is managed differently, requiring specialized app
 
 Attempting to implement CPU-style coroutines using the ctx\_swap function does not work because GPUs handle function calls differently.
 \acsp{CPU} stores a call stack of function stack frames, which can be easily accessed and manipulated by pushing and popping values or addresses.
-\acsp{GPU}, in contrast, avoids traditional stack frames by aggressively inlining function calls, reducing overhead since function code is readily available and no stack frame is needed. 
+\acsp{GPU}, in contrast, avoid traditional stack frames by aggressively inlining function calls, reducing overhead since function code is readily available and no stack frame is needed. 
 
 Implementing and manipulating deep call stacks on GPUs is primarily handled by the compiler and hardware, leaving very little control to the programmer, which makes such approaches impractical.
 For example, CUDA initially did not support recursive functions, which were only introduced later via the \lstinline[language=cuda]`-rdc=true` flag. 
