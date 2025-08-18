@@ -2,33 +2,33 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 \chapter{Background}\label{chapter:Background}
 
-This background chapter begins by examining the role of \acsp{GPU} in real time sytems, focusing on the architectural and programming constraints that influence scheduling and performance. 
-The section then devlops into an analysis of real time programming models for GPUs with consideration of persistent threads and coroutines as implemented into the autonomous driving system Apollo. 
-This section provides the necessary technical background to understand how GPU design influences system behavior and scheduling under real time constraints.
+This background chapter begins by examining the role of \acsp{GPU} in real-time systems, focusing on the architectural and programming constraints that influence scheduling and performance. 
+The section then develops into an analysis of real-time programming models for GPUs, considering persistent threads and coroutines as implemented in the autonomous driving system Apollo. 
+Futhermore, this section provides the necessary technical background to understand how GPU design influences system behavior and scheduling under real-time constraints.
 
 
 \section{Real Time Systems}
 
-Real time systems are designed with strict timing constraints to ensure predictable and safe behaviour. \cite{10155700}
-These constraints are expressed in terms of the systems ability to meet task deadlines, classified as either soft or hard deadlines.
-Hard deadlines are critical to the safety of the system and missing these deadlines results in potential system failure or unsafe conditions. 
-For example, missing the deadline on tasks such as collision avoidance or brake activation, severely impact the systems safety.
-Soft deadlines, in contrast, are less critical and can be missed without posing a risk to system integrity. 
-To ensure the safety of the system, tasks are priortized both by their deadline urgency and by the criticality of their impact. 
-Prioritization in real time systems often requires preempting soft deadline or non urgent tasks in order to prioritize hard deadline, critical tasks. 
+Real-time systems are designed with strict timing constraints to ensure predictable and safe behavior. \cite{10155700}
+These constraints are expressed in terms of the system's ability to meet task deadlines, classified as either soft or hard deadlines.
+Hard deadlines are critical to the system's safety, and missing these deadlines can result in potential system failure or unsafe conditions. 
+For example, missing the deadline on tasks such as collision avoidance or brake activation severely impacts the system's safety.
+Soft deadlines, in contrast, are less critical and can be missed without compromising system integrity. 
+To ensure the system's safety, tasks are prioritized based on both their deadline urgency and the criticality of their impact. 
+Prioritization in real-time systems often requires preempting soft deadlines or non-urgent tasks to prioritize hard deadlines and critical tasks. 
 
 \section{Integration of GPUs in Autonomous Driving Systems}
 
 Early autonomous systems relied solely on \acs{CPU} based compute engines for system control and task execution. 
-For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, used 6 Pentium processors among which tasks were divided \cite{Hoffmann_undated-qi}.
-The CPU centric design, combined with resource partitioning, enabled the system to satisfy real time requirements using established approaches. 
+For example, the Stanley autonomous car, which won the 2005 DARPA Grand Challenge, utilized six Pentium processors, among which tasks were divided \cite{Hoffmann_undated-qi}.
+The CPU-centric design, combined with resource partitioning, enabled the system to satisfy real-time requirements using established approaches. 
 
 
-As deep learning techniques advanced, \acsp{CNN} began to outperform tradition methods in perception tasks such as object detection, lane recognition and environment understanding.  
+As deep learning techniques advanced, \acsp{CNN} began to outperform traditional methods in perception tasks such as object detection, lane recognition, and environment understanding.  
 This shift necessitated the integration of \acsp{GPU} to handle the increased computational demands. 
-Early autonomous driving systems reliant on only CPUs struggled to continue performantly processing data with CNNs in real time. 
-One of the earliest projects using GPUs for autonomous driving, was NVIDIA in 2015, which used a GPU to train a CNN that could steer a car end to end from raw camera input \cite{bojarski2016endendlearningselfdriving}. % https://arxiv.org/pdf/1604.07316
-Today, nearly all modern autonomous platforms, rely on GPUs for sensor processing, perception and decision making tasks. 
+Early autonomous driving systems, which relied solely on CPUs, struggled to continue performing well in processing data with CNNs in real-time. 
+One of the earliest projects using GPUs for autonomous driving was NVIDIA's 2015 project, which utilized a GPU to train a CNN that could steer a car end-to-end from raw camera input \cite{bojarski2016endendlearningselfdriving}. % https://arxiv.org/pdf/1604.07316
+Today, nearly all modern autonomous platforms rely on GPUs for sensor processing, perception, and decision-making tasks. 
 
 The rapid adoption of \acs{GPU} into these systems depends heavily on their massive performance gain on highly parallel workloads, such as neural network inferencing and training. 
 Deep neural networks, inspired by the structure of the human brain, learn patterns through layers of weighted nodes.
@@ -36,21 +36,20 @@ These nodes perform large numbers of matrix operations, tasks that are highly pa
 As a result, \acsp{GPU} can exploit the inherent task parallelism to significantly outperform \acsp{CPU} in both training and inference.
 
 
-
 \section{GPU versus CPU Architecture}
 
 %\cite{taskparallelism} for cuda api not supporting interruption
 
-\acsp{GPU} deliver a significant increase in throughput over CPUs, by simplifying the thread context in order to afford greater parallelism.
-Originally developed to accelerate graphics rendering, a task heavy in parallizable computations, GPU architectures were designed to support increasing numbers of threads. 
-Because these tasks required very little control overhead, GPU threads were intentionally kept simple avoiding the complex control logic found in CPU thread management.
+\acsp{GPU} deliver a significant increase in throughput over CPUs, by simplifying the thread context to afford greater parallelism.
+Initially developed to accelerate graphics rendering, a task that is heavily reliant on parallelizable computations, GPU architectures were designed to support increasing numbers of threads. 
+Because these tasks required very little control overhead, GPU threads were intentionally kept simple, avoiding the complex control logic found in CPU thread management.
 
 Although the \acs{CPU} offers some parallelism, it is primarily optimized for sequential tasks, relying heavily on the performance of individual threads. 
-To achieve greater performance on these tasks, \acsp{CPU} dedicate a substantial "portion of their transistors to non computational tasks", specifically control and memory management logic. 
-Features such as prefetching, branch prediction, speculative execution and out of order execution enable CPUs to efficiently handle irregular, sequeuntial control flows.
-However, this complextiy comes at the cost of reducing teh fraction of hardware dedicated purely to computation.
-In contrast, \acsp{GPU} minimize control overhead, instead allocating resources to maximize arithmetic throughput across many lightweight threads. 
-Consequently, \acsp{CPU} operate at higher clock rates, while \acsp{GPU} achieve higher throuhput by increasing arithmetic intensity \cite{Owens2007-kp}.
+To achieve greater performance on these tasks, \acsp{CPU} dedicate a substantial "portion of their transistors to non-computational tasks", specifically control and memory management logic. 
+Features such as prefetching, branch prediction, speculative execution, and out-of-order execution enable CPUs to handle irregular, sequential control efficiently flows.
+However, this complexity comes at the cost of reducing the fraction of hardware dedicated purely to computation.
+In contrast, \acsp{GPU} minimizes control overhead, instead allocating resources to maximize arithmetic throughput across many lightweight threads. 
+Consequently, \acsp{CPU} operates at higher clock rates, while \acsp{GPU} achieves higher throughput by increasing arithmetic intensity \cite{Owens2007-kp}.
 
 Consider the following graphic Figure~\ref{fig:thread_complexity}, which highlights the difference in thread complexity. 
 
@@ -84,15 +83,15 @@ Consider the following graphic Figure~\ref{fig:thread_complexity}, which highlig
 \end{figure}
 
 
-Although core components are named differently, both CPU and GPU threads work similarily with an instruction decoder, registers and an arithmetic unit. 
+Although core components are named differently, both CPU and GPU threads operate similarly, utilizing an instruction decoder, registers, and an arithmetic unit. 
 The differences arise when trying to maximize a single control flow. 
-In contrast to the \acs{CPU}, the \acs{GPU} threads execute instructions in order, rely on manual prefetching, and use a simpler, conservative branch predictor, which limits their ability to optimize single threaded performance.
-Instead of optimizing single threaded performance, \acsp{GPU} achieve high throughput by executing thousands of lightweight threads in parallel, amortizing latency across them.
+In contrast to the \acs{CPU}, the \acs{GPU} threads execute instructions in order, rely on manual prefetching, and use a simpler, conservative branch predictor, which limits their ability to optimize single-threaded performance.
+Instead of optimizing single-threaded performance, \acsp{GPU} achieves high throughput by executing thousands of lightweight threads in parallel, amortizing latency across them.
 This design favors workloads with high data parallelism, enabling the \acs{GPU} to hide memory and execution latencies through massive concurrency rather than complex control logic. 
 
 
-The additional complex logic that \acsp{CPU} use to improve single threaded applications outperforms the single threaded GPU applications, as seen by the following comparison of single threaded matrix multiplications in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}.
-These figures show the comparison of executing a matrix multiplication using only one GPU thread versus one CPU thread on a matrix multiplication task. 
+The additional complex logic that \acsp{CPU} uses to improve single-threaded applications outperforms the single-threaded GPU applications, as seen by the following comparison of single-threaded matrix multiplications in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}.
+These figures compare the execution of a matrix multiplication using a single GPU thread versus a single CPU thread on a matrix multiplication task. 
 
 \begin{figure}[H]
   \centering 
@@ -113,42 +112,41 @@ These figures show the comparison of executing a matrix multiplication using onl
 \end{figure}	
 
 
-As seen in Figure~\ref{fig:singlethreadedgraph} and Figure~\ref{fig:singlethreadedmatrix}, GPUs struggle in applications that fail to utilize the architectural parallelism. 
+As seen in Figures~\ref {fig:singlethreadedgraph} and~\ref {fig:singlethreadedmatrix}, GPUs struggle in applications that fail to utilize their architectural parallelism. 
 For each of the matrices tested, the CPU is on average around 13 times faster than the \acs{GPU}. 
-Consequently, the \acs{GPU} should only be used in place of the \acs{CPU}, when the application is parallelizable and lacks complex control flow logic, otherwise the application will significantly underperform.
+Consequently, the \acs{GPU} should only be used in place of the \acs{CPU} when the application is parallelizable and lacks complex control flow logic; otherwise, the application will significantly underperform.
 
-For the purpose of this thesis, any GPU resident scheduler that employs complex control logic will introduce significant latency overhead. 
-Scheduling decisions, task management, and resource assignment are inherently difficult to parallelize, making them inefficient on GPU hardware.
+For this thesis, any GPU resident scheduler that employs complex control logic will introduce significant latency overhead. 
+Scheduling decisions, task management, and resource assignment are inherently challenging to parallelize, making them inefficient on GPU hardware.
 As a result, the scheduling logic is delegated to the CPU, where complex control mechanisms can be executed efficiently. 
-Consequently, the GPU's role is reduced to lightweight task dispatch and execution, while the CPU handles task queuing and resource allocation.
+Consequently, the GPU's role is reduced to dispatching and executing lightweight tasks, while the CPU handles task queuing and resource allocation.
 
 
 \subsection{GPU Architecture}
 
-The NVIDIA Tesla V100 GPU, based on the Volta architecture, was selected for this project due to its availability and suitability for high performance computing workloads \cite{nvidiawhitepaper}.
-In particular, this GPU is used for all related tests including Figure~\ref{fig:singlethreadedgraph}, Figure~\ref{fig:singlethreadedmatrix}, and the results in Chapter~\ref{chapter:Evaluation}.
-The following analysis of the V100's hardware architecture, will provide both the reasoning and implementation fundamentals for designing an efficient GPU scheduling strategy.  
-
+The NVIDIA Tesla V100 GPU, based on the Volta architecture, was selected for this project due to its availability and suitability for high-performance computing workloads \cite{nvidiawhitepaper}.
+In particular, this GPU is used for all related tests, including Figure~\ref{fig:singlethreadedgraph}, Figure~\ref{fig:singlethreadedmatrix}, and the results in Chapter~\ref{chapter:Evaluation}.
+The following analysis of the V100's hardware architecture will provide both the reasoning and implementation fundamentals for designing an efficient GPU scheduling strategy.  
 
 \subsubsection{Thread Hierarchy and Execution Model}
 
-From the programmer's perspective when assigning tasks, the GPU appears as an array of independent, highly parallelized processors, called \acsp{SM}.
-Each \acs{SM} receives work in the form of \acsp{CTA}, blocks of threads executing the same instruction code, which define the organization and grouping of threads for execution. 
+From the programmer's perspective, when assigning tasks, the GPU appears as an array of independent, highly parallelized processors, called \acsp{SM}.
+Each \acs{SM} receives work in the form of \acsp{CTA}, which are blocks of threads executing the same instruction code. These define the organization and grouping of threads for execution. 
 The executing \acs{CTA} is subdivided into warps, the smallest execution unit on the GPU, each consisting of 32 GPU threads executing instructions in lockstep. 
 The lockstep execution ensures all threads within a warp execute the same instruction simultaneously. 
-By enforcing lockstep execution, the GPU can schedule and dispatch threads to compute units with a simplified design allowing further parallelism. 
+By enforcing lockstep execution, the GPU can schedule and dispatch threads to compute units with a simplified design, allowing further parallelism. 
 
-While lockstep execution enables efficient SIMD style throughput, it also introduces a potential performance hazard.
-If threads within a warp follow different control flow paths, these threads diverge, and the GPU is forced to execute these different threads sequentially with respect to one another.
+While lockstep execution enables efficient SIMD-style throughput, it also introduces a potential performance hazard.
+If threads within a warp follow different control flow paths, these threads diverge, and the GPU is forced to execute them sequentially concerning one another.
 During this serialization, inactive threads in the warp are masked out, preventing them from writing results back to memory.
 The result is a reduction in effective parallelism, leading to degraded overall performance. 
 
 \subsubsection{SM Architecture}
 
-The Tesla V100 GPU \acs{SM} architecture contains 4 processing partitions, each with its own complete execution pipeline.
+The Tesla V100 GPU \acs{SM} architecture contains four processing partitions, each with its own complete execution pipeline.
 These partitions share an L1 instruction cache as well as a combined L1 data and shared memory cache, enabling threads within different warps of the same \acs{CTA} to efficiently access shared instructions and data. 
-Within each processing partition there is an L0 instruction cache, a warp scheduler, a dispatch unit, and multiple execution units.
-An in depth view of each processing partition's architecture is provided in Figure~\ref{fig:processing_partition}, taken from the NVIDIA Volta Whitepages.
+Within each processing partition, there is an L0 instruction cache, a warp scheduler, a dispatch unit, and multiple execution units.
+An in-depth view of each processing partition's architecture is provided in Figure~\ref{fig:processing_partition}, taken from the NVIDIA Volta Whitepages.
 
 \begin{figure}[H]
   \centering
@@ -162,10 +160,10 @@ If there are not enough execution units of the required type for a given instruc
 Depending on the current queue and delays, such as global memory accesses or dependencies, the warp scheduler will interweave different instructions from other ready warps, ensuring that the execution units remain busy.
 This thread interweaving allows GPUs to hide latencies and resource contention through thread oversubscription.
 
-In GPU scheduling, oversubscription can improve hardware utilization, though it introduces overhead.
+In GPU scheduling, oversubscription can improve hardware utilization, albeit at the expense of introducing overhead.
 By scheduling more warps than can actively execute, the GPU can potentially interleave tasks and keeps resources busy during stalls.
-Whether this is beneficial depends on the workload goals: oversubscription increases throughput, but potentially adds latency for individual tasks.
-Real time workloads may benefit from oversubscription, but the level should be tuned to the system’s performance goals to ensure minimum timing guarantees.
+Whether this is beneficial depends on the workload goals: oversubscription increases throughput, but it may also add latency to individual tasks.
+Real-time workloads may benefit from oversubscription, but the level should be tuned to the system’s performance goals to ensure minimum timing guarantees.
 
 \subsubsection{SM Scaling and Thread Concurrency}
 Compared to CPU hardware threads, GPUs scale far more aggressively, supporting a much larger number of threads. 
@@ -173,44 +171,44 @@ On the Tesla V100, there are 80 individual \acsp{SM}, each capable of supporting
 With 32 threads per warp, this yields $64 \times 32 = 2048$ threads per \acs{SM}. 
 Across all 80 \acsp{SM}, the theoretical maximum concurrency is $80 \times 2048 = 163{,}840$ resident threads.
 For comparison, a typical Intel Tiger Lake i5-1135G7 CPU has 4 cores with 2 hardware threads each, for a maximum of 8 concurrent hardware threads. 
-High end server CPUs, such as the Intel Xeon Gold 6148, only support 20 hardware threads.  
-Although the \acs{GPU} oversubscribes the number of warps and threads to hide latencies, the total number of dispatch and scheduling units allow for a maximum of $4 * 32 * 80 = 10840$ instructions issued per cycle when the hardware is fully utilized. 
+High-end server CPUs, such as the Intel Xeon Gold 6148, only support 20 hardware threads.  
+Although the \acs{GPU} oversubscribes the number of warps and threads to hide latencies, the total number of dispatch and scheduling units allows for a maximum of $4 * 32 * 80 = 10840$ instructions issued per cycle when the hardware is fully utilized. 
 
 
 In practice, this theoretical maximum is rarely achieved due to resource bottlenecks.
-All threads within an \acs{SM} share the same on-chip L1 data and shared memory cache, as well as the 256\,KiB on-chip register file ($16{,}384 \times 32$\, bit registers per processing partition, with four partitions per \acs{SM}).
+All threads within an \acs{SM} share the same on-chip L1 data and shared memory cache, as well as the 256 KiB on-chip register file ($16{,}384 \times 32$\, bit registers per processing partition, with four partitions per \acs{SM}).
 \acs{SM} threads all share the same on-chip L1 data and shared memory cache and the 256KiB on-chip register file ($16{,}384 \times 32$\, bit registers per processing partition, with four partitions per \acs{SM}).
 Depending on the kernel's resource usage, high register pressure will cause the kernel launch to fail. 
-Furthermore, if multiple thread blocks with high shared memory demands get scheduled to the same \acs{SM}, they will saturate the L1 data and shared memory cache and force frequent evictions and write backs to the L2 cache or global memory.  
+Furthermore, suppose multiple thread blocks with high shared memory demands are scheduled to the same \acs{SM}. In that case, they will saturate the L1 data and shared memory cache, forcing frequent evictions and writebacks to the L2 cache or global memory.  
 These hardware limits must be carefully considered when mapping tasks to \acsp{SM}.
 
-Native GPU code handles these constraints automatically without any needed input from the programmer.
-When launching kernels, the host, driver and device each analyze the programming configurations to see if the hardware can support the task. 
-Should the hardware fail, the launch silently fails with a \lstinline[language=cuda]'cudaError_t' return type. 
+Native GPU code handles these constraints automatically, without requiring any input from the programmer.
+When launching kernels, the host, driver, and device each analyze the programming configurations to see if the hardware can support the task. 
+Should the hardware fail, the launch silently fails with a \lstinline[language=cuda] 'cudaError_t' return type. 
 
 However, building a GPU scheduler on top of this system introduces additional challenges.
-A custom scheduler must account for the same hardware constraints, thread limits, register pressure, shared memory, and occupancy, when mapping tasks to the GPU.
+A custom scheduler must account for the same hardware constraints, thread limits, register pressure, shared memory, and occupancy when mapping tasks to the GPU.
 At the same time, the scheduler operates within the bounds of the proprietary hardware scheduler, which already enforces its own resource allocation and dispatch policies.
-As a result, attempts to impose new scheduling behavior may conflict with or be restricted by the GPU’s built in mechanisms, limiting the degree of control available to the programmer.
+As a result, attempts to impose new scheduling behavior may conflict with or be restricted by the GPU's built-in mechanisms, limiting the degree of control available to the programmer.
 
 \subsubsection{Scheduling and Task Mapping}
 
 Within the CUDA programming model, the specific mapping of tasks to \acsp{SM}, \acsp{TPC}, and \acsp{GPC} is determined natively by the proprietary hardware scheduler, the GigaThread Engine. 
-While the exact documentation is not public, this module maps \acsp{CTA} to the individual \acsp{SM} based a multitude of factors: hardware resources, parallelism, priorities, and dependencies.
-Similarly, the global memory and L2 cache utilization are determined by the hardware and transparent to the programmer.
+While the exact documentation is not public, this module maps \acsp{CTA} to the individual \acsp{SM} based on a multitude of factors: hardware resources, parallelism, priorities, and dependencies.
+Similarly, the global memory and L2 cache utilization are determined by the hardware and are transparent to the programmer.
 After the \acs{CTA} gets mapped to the specific \acs{SM}, the device code then executes till completion without interruption. 
 
 The \acsp{CTA} is entirely managed by the \acs{SM} on which it is currently executing. 
-As shown previously in Figure~\ref{fig:processing_partition}, the \acs{SM} has its own execution pipelines, register files, shared memory and scheduling units on which the \acs{CTA} executes.
-For \acsp{SM} to communicate with one another, they must use either the global on chip device \acs{HBM2} or the global L2 cache which is shared and coherent across all \acsp{SM}.
+As shown previously in Figure~\ref{fig:processing_partition}, the \acs{SM} has its own execution pipelines, register files, shared memory, and scheduling units on which the \acs{CTA} executes.
+For \acsp{SM} to communicate with one another, they must use either the global on-chip device \acs{HBM2} or the global L2 cache, which is shared and coherent across all \acsp{SM}.
 Although the global memory allows individual \acsp{SM} to communicate with each other, accesses require hundreds of cycles, which introduce further latencies when compared to local \acs{SM} L1 memory caches.
-Ideally, the \acsp{SM} execute independently of one another and accumulate answers in global memory, skipping the high memory latency accesses of coordinating synchronous work.
+Ideally, the \acsp{SM} execute independently of one another and accumulate answers in global memory, thereby skipping the high memory latency associated with coordinating synchronous work.
 
 \section{GPU Programming using the CUDA API}
 
 NVIDIA \acsp{GPU} are designed as computational accelerators for a host system, which manages and schedules tasks using the CUDA programming model. 
 In this model, the \acs{GPU} acts as an independent processor with its own memory and execution pipelines. 
-For tasks to be scheduled on the GPU, the host process must first launch it through the CUDA API, an extension of C++ that enables CPU to communicate with and control the GPU. 
+For tasks to be scheduled on the GPU, the host process must first launch it through the CUDA API, an extension of the C++ programming language that enables the CPU to communicate with and control the GPU. 
 
 Using CUDA, the host invokes device functions, called kernels, while specifying execution parameters such as the number of threads and memory configuration.
 These kernel launches are asynchronous, meaning that once the host issues the call, the GPU executes it independently, allowing the CPU to continue other work or synchronize with the GPU later as needed. 
@@ -227,17 +225,17 @@ Conversely, if a \acs{CTA} does not fully saturate the hardware resources of an 
 \subsection{Host to GPU Memory Transfers and Bandwidth Considerations}
 
 Both the GPU and CPU maintain distinct memory regions to match their respective architectural and performance requirements.  
-CPU memory is optimized for low latency access to efficiently handle serial and branch intensive workloads.
+CPU memory is optimized for low-latency access to efficiently handle serial and branch-intensive workloads.
 GPU memory, on the other hand, is designed for high throughput, allowing thousands of threads to execute in parallel while tolerating higher latency per access.
 
-Since the memory regions are distinct, the CPU must explicitely allocate and transfer data to the GPU using the CUDA API.
-Transfers require the CPU memory to be pinned in RAM, as CUDA cannot directly access the disk.
-While the CUDA runtime can automatically pin memory, automatically, host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` eliminates this extra step and enables faster transfers.
-However, allocating excessive pinned memory reduces the RAM availbale to other CPU processes, potentially causing paging and degrading system performance. 
-Careful management of pinned memory is therefore essential for amximinzing data transfer efficiency without negatively impacting the host system. 
+Since the memory regions are distinct, the CPU must explicitly allocate and transfer data to the GPU using the CUDA API.
+Transfers require the CPU memory to be pinned in RAM, as CUDA cannot access the disk directly.
+While the CUDA runtime can automatically pin memory, host arrays allocated directly in pinned memory using \lstinline[language=cuda]'cudaMallocHost()' or \lstinline[language=cuda]`cudaHostAlloc()` eliminates this extra step and enables faster transfers.
+However, allocating excessive pinned memory reduces the RAM available to other CPU processes, potentially causing paging and degrading system performance. 
+Careful management of pinned memory is therefore essential for maximizing data transfer efficiency without compromising the host system's performance. 
 
 In CUDA, understanding how memory is transferred and managed across the host and the device is crucial for optimizing performance.  
-The device memory consists of a global 16 GB block on the Tesla V100 architecture as well as on chip processor memory. 
+The device memory consists of a global 16 GB block on the Tesla V100 architecture, as well as on-chip processor memory. 
 To improve memory performance, the programmer can leverage three different models of memory management \lstinline[language=cuda]`__constant__`, \lstinline[language=cuda]`__device__`, and \lstinline[language=cuda]`__shared__` memory.
 Both constant and device memory are allocated to the global memory, with constant memory only being writeable by the \acs{CPU} and allowing faster access times due to the reduced coherency required.
 The shared memory is shared among all warps and threads of a given \acs{SM} in the L1 data and shared memory cache.  
@@ -278,39 +276,38 @@ int main() {
 }
 \end{lstlisting}
 
-The code block above depicts the launching and execution of a simple GPU kernel as well as the memory allocation scheme used for executing kernel code.
-The kernel itself is the execution of the \acs{GPU} device program denoted by the \lstinline[language=cuda]`__global__` function, while the \lstinline`<<<_, _>>>` syntax enables the programmer to specifically partition their execution tasks across waiting threads. 
+The code block above illustrates the launch and execution of a simple GPU kernel, as well as the memory allocation scheme used for executing kernel code.
+The kernel itself is the execution of the \acs{GPU} device program denoted by the \lstinline[language=cuda]`__global__` function. In contrast, the \lstinline`<<<_, _>>>` syntax enables the programmer to partition their execution tasks across waiting threads specifically. 
 The values in \lstinline<<<1,32>>> specify the grid and block dimensions, determining how many blocks are launched and how many threads execute per block. 
 These dimensions can be given as integers or as a dim3 struct for 1D, 2D, or 3D layouts.
 In particular, this code allocates a singular block with an array of 32 threads, which completely saturates a singular warp. 
-These dimensional vectors allow the different threads to maintain lockstep execution, while processing different sections of the same array. 
-This is done by using the dimensional properties assigned to the individual threads by the runtime system. 
+These dimensional vectors allow the different threads to maintain lockstep execution while processing different sections of the same array. 
+This is achieved by utilizing the dimensional properties assigned to each thread by the runtime system. 
 
-The main function, executed by the \acs{CPU} or host, initializes the parameters, executes the kernel and then copies the memory back. 
-The host array, \lstinline[language=C++]`h_x` is allocated to the CPU stack, which is explictly copied to the \acs{GPU}.
-Trying to Passing the array by value, something common in C++ code, seems at first the most simple; however, poses two seperate issues.
-Firstly, when passing arrays as parameters, they decay to pointers, which CUDA forbids, as the pointer address passed to the device does not have any meaning on the GPU.
-Secondly, if the array were wrapped in a struct and passed to the function to circumvent the first issue, the array would be allocated to every single thread independently. 
-In the example above, the array would be allocated 32 times, each independent from one another, taking up further memory bandwidth and both on chip and global device memory. 
-In this case, each individual thread, would get the array passed by value, leading to a total 32 threads * 1024 floats * 4 bytes per float or 128KiB. 
-Instead, the memory is allocated in the device memory, transferred once and each thread recieves only the device pointer \lstinline[language=C++]`d_x`, which can be used to copy the results back to the host.  
-
+The main function, executed by the \acs{CPU} or host, initializes the parameters, executes the kernel, and then copies the memory back. 
+The host array, \lstinline[language=C++]`h_x` is allocated to the CPU stack, which is explicitly copied to the \acs{GPU}.
+Trying to pass the array by value, something common in C++ code, seems at first the simplest; however, it poses two separate issues.
+Firstly, when passing arrays as parameters, they decay to pointers, which CUDA forbids, as the pointer address passed to the device has no meaning on the GPU.
+Secondly, if the array were wrapped in a struct and passed to the function to circumvent the first issue, the array would be allocated independently for every single thread. 
+In the example above, the array would be allocated 32 times, each independent of the others, taking up further memory bandwidth and both on-chip and global device memory. 
+In this case, each individual thread would get the array passed by value, leading to a total of 32 threads * 1024 floats * 4 bytes per float or 128KiB. 
+Instead, the memory is allocated in the device memory, transferred once, and each thread receives only the device pointer \lstinline[language=C++]`d_x`, which can be used to copy the results back to the host.  
 
 \subsection{CUDA Streams}
 
-CUDA API calls are queued to the \acs{GPU} using cuda streams, which enforce the execution order of tasks.
+CUDA API calls are queued to the \acs{GPU} using CUDA streams, which enforce the execution order of tasks.
 A stream, represented by the type \lstinline[language=cuda]{cudaStream_t} acts as a handle to a specific command queue, similar to how a Linux file pointer in Linux refers to a particular file descriptor.
 Within a stream, operations such as kernel launches, memory copies, and memory set operations are enqueued and executed strictly in the order they are issued, ensuring deterministic behaviour.
 Commands submitted to the same stream are executed sequentially in the order they were issued, ensuring deterministic behavior within that stream.
-When using multiple streams, the GPU can execute operations concurrently, allowing kernels and memory operations to overlap.
-By carefully managing streams, developers can expose task parallelism, reduce idle time, and more effectively use GPU resource.
+When using multiple streams, the GPU can execute operations concurrently, allowing kernels and memory operations to overlap in time.
+By carefully managing streams, developers can expose task parallelism, reduce idle time, and utilize GPU resources more effectively.
 
-The Tesla V100 GPU has two seperate hardware copy engines for copying data from the host to the device and back. 
+The Tesla V100 GPU features two separate hardware copy engines for copying data from the host to the device and vice versa. 
 The copy engines support the transfer in both directions, with one engine specifically being allocated for the unidirectional \acs{D2H} transfer and the other for \acs{H2D}.
-Using only one stream for multiple kernels fails to maximize the device memory bandwidth. 
+Using only one stream for multiple kernels fails to utilize the device's memory bandwidth fully. 
 For example, consider the launch of two independent kernels, kernel A and kernel B, each on the same CUDA stream. 
-Both A and B, allocate and copy memory onto the device, schedule their kernels and then copy the results back. 
-Regardless of the ordering of the API calls, the two kernels cannot execute concurrently or share the hardware copy engines, since their execution is serialized by being placed in CUDA stream.
+Both A and B allocate and copy memory onto the device, schedule their kernels, and then copy the results back. 
+Regardless of the ordering of the API calls, the two kernels cannot execute concurrently or share the hardware copy engines, since their execution is serialized by being placed in a CUDA stream.
 To maximize hardware utilization and ensure correctness, each kernel and its associated memory transfers should be placed in the same dedicated stream, allowing the CUDA runtime to safely overlap kernel execution, memory copies, and bidirectional transfers when possible.
 
 \input{chapters/04_coroutines.tex}
