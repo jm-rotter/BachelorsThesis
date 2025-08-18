@@ -112,7 +112,9 @@ In particular, it demonstrates that persistent threads reduce scheduling overhea
 Furthermore, Chapter~\ref{chapter:Persistent Threads}  outlines how priorities and coroutines could be integrated into this persistent thread model. 
 Overall, this work enhances understanding of real-time GPU scheduling, CUDA architecture, and GPU execution and programming models, providing a foundation for future improvements and research in high-performance real-time GPU computing.
 
-\section{Limitations and Future Work}
+\section{Limitations}
+
+\subsection{Input Parameter Memory Limitation}
 
 The primary limitation observed is the non-deterministic results discussed in Chapter~\ref{chapter:Evaluation}. 
 This behavior arises from the way tasks are enqueued.
@@ -127,20 +129,39 @@ Furthermore, this approach enables the GPU to assign tasks to specific partition
 Another approach is to introduce a separate execution buffer that only allows task execution after all necessary data has been copied and made stream-coherent.
 Lastly, the GPU could track the number of tasks waiting for execution using a synchronization method, which is only updated after tasks are coherent. 
 
-Additional limitations include the manually written wrappers used for serializing and deserializing parameters.
-These wrappers introduce extra overhead and complexity for the user, making the system slower and more labor-intensive than an automatic solution would be.
-Addressing these limitations represents a clear path for future work to support reliable, efficient, and user-friendly persistent thread-based scheduling.
+
+\subsection{Persistent Kernel Limitations}
+
+The persistent kernel scheduler is intended to work in harmony with the internal hardware scheduler.
+Conflicts between the different schedulers can negatively influence the performance or result in a failed kernel launch. 
+For example, in this thesis, the initial evaluation was performed on larger matrices, which worked well for benchmarking the implementation but failed to execute on the GPU persistent thread implementation due to register pressure.
+Furthermore, thread blocks can be inoptimally managed and scheduled by the user level scheduler to resource contented SMs.
+In such cases, theinternal handler would have been better.
+Consider the case of scheduling two tasks that are heavy in shared memory to the same SM, which would lead to contention and reduced performance.
+Attempting to schedule tasks manually requires a detailed understanding of both hardware profiling and resource usage, making the approach substantially more complex.
+
+When optimizing the persistent kernel implementation using NVIDIA Nsight Systems (nsys), the profiling process also became more challenging.
+Nsys provides detailed kernel execution latency breakdowns of kernels.  
+However, because the persistent kernel itself executes the tasks, it becomes challenging to identify which task is currently running and to measure its latency.
+As a result, task latencies must be measured explicitly, either through CUDA events or with custom tracking mechanisms.
+
+Lastly, in this implementation, the custom wrappers written for serializing and deserializing parameters introduce further complications.
+Supporting a wide range of tasks required significant implementation effort, and these wrappers added extra overhead.
+This not only slowed down the system but also increased the complexity for the user, making the approach more labor-intensive compared to an automatic solution.
+
+
 
 \section{Future Work}
-The current system does not support priority-based scheduling decisions or the use of coroutines for software preemption execution.
-Future work could build on the strategies outlined in this thesis to utilize the persistent kernel implementation as a foundation for these features, enabling more predictable real-time scheduling. 
-In this case, the memory management system may need to transition from an epoch-based scheduler to a more complex management system. 
+The current system does not support priority-based scheduling decisions or the use of coroutines for software preemption.
+Future work could build on the strategies outlined in this thesis to extend the persistent kernel implementation with these features, enabling more predictable real-time scheduling. 
+In this case, the memory management system may need to evolve from an epoch-based scheduler to a more complex management system. 
 Additionally, the current manual streaming of input and output parameters limits task variability and automation.  
 Developing a generalized parameter serialization and deserialization layer that supports arbitrary kernel arguments would increase flexibility and reduce overhead in task preparation.
 
-Two particularly promising directions for GPU persistent threads are GPU partitioning and automatic task generation through interception.
-By fully allocating GPU resources and using PTX code to define the behavior of individual \acs{SM}s, persistent threads can enforce manual GPU partitioning, reducing interference between tasks. 
-Additionally, implementing a CUDA API interception to capture and schedule tasks automatically would significantly enhance both the implementation of persistent threads in other projects and the ease of adapting these tasks to new workloads.
+Future work may also explore the use of persistent kernels for GPU partitioning and automatic task generation.
+By fully allocating GPU resources, individual \acsp{SM} can be assigned dedicated task queues, keeping different modules independent from one another. 
+This form of GPU partitioning reduces interference between tasks and improves isolation.
+Furthermore, implementing a CUDA API interception layer to capture and schedule tasks automatically would significantly enhance both the use of persistent threads in other projects and the ease of adapting these tasks to new workloads.
 
 \section{Conclusion}
 
