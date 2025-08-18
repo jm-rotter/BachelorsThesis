@@ -2,56 +2,57 @@
 
 \chapter{Experiments and Evaluation}\label{chapter:Evaluation}
 
-This chapter evaluates the proposed GPU persistent thread model with respect to the objectives of this work:
+The evaluation focuses on measuring the model’s effectiveness in meeting the stated objectives as defined in Chapter~\ref{chapter:introduction}.
+In particular, it examines the reduced scheduling latency and kernel overhead when invoking kernel functions.
+The results highlight both the benefits of the approach and its limitations.
 
-\begin{enumerate}
-    \item Reducing scheduling latency by minimizing kernel overhead.
-    \item Establishing a baseline platform for future research in real time GPU scheduling, serving as a foundation for a coroutine based approach.
-    \item Enhancing understanding of real time GPU scheduling, CUDA architecture, and GPU execution, programming, and scheduling models.
-\end{enumerate}
 
-The implementation introduces a GPU persistent thread model designed as both a building block for future scheduling research and as a means to improve the efficiency of executing multiple tasks on the GPU by reducing kernel launch overhead.
-This persistent GPU model allows for application specific fine tuning with particular focus on hardware resource management.
-In this model, the persistent kernel executes throughout the lifetime of the application and dynamically processes incoming tasks streamed to the GPU, avoiding repeated kernel launches.
+\section{Limitation in Memory Transfers during Evaluation}
 
-The evaluation focuses on measuring the model’s effectiveness in meeting the stated objectives.
-In particular, it examines scheduling latency, kernel overhead, and suitability as a baseline for real time programming models such as coroutines.
-The results highlight both the benefits of the approach and its limitations, especially regarding task variability and scaling across the \acs{GPU}.
+During testing, the evaluation revealed non deterministic behavior in the execution results.
+In some runs, the kernels scheduled did not use the correct input matrices, but instead used uninitalized memory, resulting in output matrices with only 0s.
+Under further testing, this issue never occurred when debugging print statements were inserted, suggesting that the non deterministic issue was timing related.
+In particular, that the input arguments were being processed before they were available. 
+While this issue was not addressed in the current implementation, documenting it is important to understand the limitations and potential challenges when using persistent GPU threads for real time workloads.
+
+Given that the print statements ensured correct execution and the values inside the kernel functions were observed to be incorrect, the issue lies with the enqueing of tasks to the GPU. 
+The task enqueuing process first copies memory, then copies the task into the respective buffers within the same stream, and only afterward notifies the GPU of the new tasks.
+Therefore, the memory should be consistent and correct before the task is even in the buffer to be executed. 
+However, the GPU periodically polls for new tasks after a deadline to avoid missing updates if the CPU enqueues a task while the message flag is reset.
+When this polling happens as the task is being copied into the memory buffer, it can happen that a memory copy completed only partially, leaving correct execution values but an incorrect offset, leading to incomplete or invalid matrices being processed.
+
+This hypothesis is unproven, but in the cases with incorrect values, kernel execution times are greatly reduced, leading analysis of the results to be incomplete. 
+Therefore, evaluation in the following graphs contains only the execution runs that correctly computed all values within the task queue.
 
 \section{Experimental Setup}
 
-In order to evaluate the effectiveness of persistent threads in reducing the scheduling latency, the solution was tested on a matrix multiplication benchmark against a baseline implementation. 
-To test the persistent threaded implementation, a simple matrix multiplication task was repeatedly scheduled on the persistent thread implementation and compared with a simple kernel invocation code.  
-The persistent kernel was then tested with a number of varying parameters, including memory overhead, GPU work, and number of persistent kernel blocks.  
+To access the effectiveness of persistent threads in reducing the scheduling latency, the solution was tested on a matrix multiplication benchmark against a baseline implementation. 
+For this analysis a simple random matrix multiplication task was repeatedly generated and scheduled 32 times using the persistent thread implementation.
+The measured latency was then compared to a straightforward kernel invocation. 
+All experiments were conducted on an NVIDIA Tesla V100 GPU running CUDA version 11.8.
 
 \subsection{Matrix Multiplications for Performance Testing}
 
-The current execution model requires manual task wrappers for scheduling and executing GPU tasks, making it more complex to provide a varying range of different tasks. 
-The manual task wrappers, designed to reduce the overhead of allocating GPU memory, are required to serialize and deserialize the allocated data during execution.
+The current execution model requires manual task wrappers for scheduling and executing GPU tasks, which adds complexity when supporting a variety of tasks. 
+These wrappers reduce the overhead of GPU memory allocation, but require serialization and deserialization of the data during execution.
 To keep testing manageable, this thesis focuses on matrix multiplications as a representative example to demonstrate the solution's capabilities. 
 
-In particular, the selected matrix multiplications were of a predetermined size of 16x16, due to the constraints of the GPU persistent kernel. 
-Normally, the programmer decides at kernel launch the configurations of threads within the kernel; however, this feature is not available for persistent threads.
-Persistent threads configurations are determined at launch and can not be reallocated throughout the duration of the task.  
-For application based workloads, these values would need to be determined through profiling the workloads and manually implementing the values. 
-In this case, matrix multiplications are significantly faster when the task has at least as many threads as the solution matrix values, which led this implementation to using a 16x16 persistent kernel launch configuration. 
+In particular, the benchmark uses matrix multiplications of fixed size 16 x 16 chosen due to the inflexibility of changing configurations during the kernel's lifetime. 
+Normally, the programmer specifies kernel thread configurations at launch; however, this is not possible with persistent threads.
+Their configuration is fixed at launch and cannot be changed during execution.
+In practice, such values would need to be determined by profiling the workload and implementing them manually.
+Since performance improves when the number of threads matches or exceeds the number of elements in the solution matrix, this implementation uses a 16×16 matrix with a 16×16 grid dimensionality.
 
-\subsection{Testing Environment}
+\subsection{Simulated Workload for Testing}
 
-Throughout the matrix multiplication performance testing, as the benchmark and the persistent kernel implementation both vary in application goals, a simulated work environment was designed. 
-For the tests, the persistent kernel task schedules a number of tasks to the GPU and then immediately starts waiting to receive the results. 
-As the tasks are being scheduled, the GPU already begins to execute enqueued tasks. 
-After finishing individual tasks, the host is signaled with the message that the tasks are finished. 
-In comparison, the matrix multiplication benchmark just executes tasks serially in an alloc, memcpy, kernel launch, memcpy loop.  
-
-In a real time persistent kernel implementation, the CPU needs to independently run tasks within the system and cannot synchronously wait on results to be streamed back.
-Rather, the CPU needs the results to be waiting when the it goes to check if the results have returned or not.  
-Unfortunately, this model, when compared to any synchronous execution, will have waiting overhead.
-This is implemented within the test kernel as a busy waiting scheme; however, this increases the GPU traffic and slightly weakens the GPU implementation as it contests the same streams for data transfers.  
+Because the benchmark and persistent kernel implementation differ in their application goals, a simulated workload was designed for testing. 
+In these tests, the persistent kernel task schedules 32 random matrix multiplication tasks to the GPU and then immediately begins waiting for results. 
+As the tasks are being scheduled, the GPU concurrently executes already enqueued tasks. 
+After finishing individual tasks, the host is signaled with the mailbox message. 
+By contrast, the matrix multiplication benchmark executes tasks serially in an allocation, memory copy, kernel launch, and memory copy back loop.  
 
 
-
-\subsection{Small Kernel and Small Memory Transfers}
+\subsection{Latency Measurements}
 
 
 \begin{figure}[H]
@@ -62,16 +63,17 @@ This is implemented within the test kernel as a busy waiting scheme; however, th
 \end{figure}
 
 
-Figure~\ref{fig:sm_sk} shows the first experiment that was run comparing the task scheduling from the GPU persistent kernel in comparison to the baseline model. 
-Here each implementation executes 32 tasks 16x16 matrix multiplication tasks scheduled to the GPU. 
+Figure~\ref{fig:sm_sk} presents the first experiment, comparing task scheduling using the GPU persistent kernel against the baseline model. 
+Here each implementation executes 32 tasks of 16x16 matrix multiplication tasks scheduled to the GPU. 
 The matrixes for testing are generated at runtime and compared to the correct CPU implementation using the same functios.  
 
-On average over 10,000 runs, the persistent kernel achieved an execution time of 189.165ms, while the baseline model required 229.604ms, demonstrating a clear performance benefit for this small kernel, small memory transfer case.
-However, the measurements exhibited high variability, with execution times differing by as much as $\pm$50ms between runs, even averaged over 10000 different executions.
-Despite this noise, the persistent kernel consistently outperformed the baseline in the majority of trials.
+Across 10,000 runs, the persistent kernel achieved an execution time of 207.12 ms, compared to 229.60 ms for the baseline model. 
+This demonstrates a clear performance advantage for the persistent kernel in the case of small kernels with modest memory transfers. 
+However, the measurements exhibited high variability, with execution times differing by as much as $\pm$50 ms between runs, even when averaged over 10,000 executions.
+Despite this variability, the persistent kernel consistently outperformed the baseline in trials.
 
 
-\subsection{Small Kernel and Larger Memory Transfers}
+\subsection{Latency Measurements with large Memory Transfers}
 
 \begin{figure}[H]
   \centering
@@ -80,105 +82,77 @@ Despite this noise, the persistent kernel consistently outperformed the baseline
   \label{fig:bm_sk}
 \end{figure}
 
-In this secondary evaluation, the GPU executes the same task as before but now transfers an additional 1 MiB of memory to the task and returns it.
-Interestingly, the persistent thread implementation runs slightly faster than in the previous test, while the baseline control becomes slower.
-This unexpected result prompted further testing with a larger input size of 10 MiB, which completed in 623.915ms.
+In this secondary evaluation, the GPU executes the same task as before but with an additional 1 MiB of memory transferred to and from each task.
+Interestingly, the persistent thread implementation ran slightly faster than in the previous test, while the baseline control becomes significantly slower.
+For reference, the persistent kernel completed in 178 ms, compared to 350 ms for the non-persistent version.
+This unexpected outcome prompted further testing with a larger input size of 10 MiB, which completed in 623.915ms.
 
-The observed increase in speed is likely due to the underlying memory management strategy.
-To conserve valuable GPU resources, the memory buffers are logically partitioned using offsets.
-When tasks use very small memory frames, their data ends up placed very close together in memory.
-During execution, tasks that read from memory locations adjacent to others simultaneously writing to nearby regions can cause contention and reduce performance.
-By increasing the memory size transferred per task, these memory regions are spaced farther apart, reducing contention and allowing the kernel to run more efficiently.
+The performance improvement is likely attributable to the underlying memory management strategy. 
+To conserve GPU resources, memory buffers are partitioned logically using offsets.
+When tasks use very small memory frames, their data is placed closely together in memory.
+During execution, this proximity can lead to contention: tasks from memory locations adjacent to those being written to by other tasks may experience reduced performance.
+By increasing the memory size transferred per task, the allocated regions are spaced farther apart, reducing contention and allowing the kernel to execute more efficiently.
 
-This separation applies to both input and output buffers. 
-When transferring larger amounts of data (e.g., 1 MiB or more), the serialized GPU memory transfers no longer interfere with kernel execution, leading to the improved performance observed.
+\section{Multiple GPU Blocks}
 
-\subsection{Multiple Kernels}
-
-
-
-\section{Profiling and Analysis with \texttt{nsys}}
-
-To better understand the execution characteristics of the implementation, \texttt{nsys} profiling was performed for both the baseline (non-persistent) and persistent-threaded approaches. 
-In the baseline version, the profiler output is easy to interpret: each kernel launch is explicitly visible on the timeline, interleaved with host-device memory transfers. 
-This makes it straightforward to determine where computation occurs, identify launch overheads, and correlate them with memory transfer costs.
-
-In contrast, profiling the persistent-threaded implementation presents significant challenges. 
-Since the persistent kernel is launched only once and remains active for the duration of execution, there are no distinct kernel launch entries on the timeline for each individual task. 
-Instead, the majority of the visualized activity in \texttt{nsys} consists of frequent host-to-device and device-to-host memory transfers corresponding to the queuing and completion of tasks. 
-The actual execution of the tasks within the persistent kernel is effectively "hidden" from the profiler’s high-level view, as it takes place inside the single long-running kernel.
-
-This difference means that the persistent-threaded execution does not lend itself well to the same form of visual, task-by-task inspection available in the baseline case. 
-While memory transfer patterns can still be analyzed, the lack of discrete kernel events makes it difficult to directly measure per-task execution time or to distinguish between overlapping computation and data movement. 
-To obtain deeper insights, low-level instrumentation or custom device-side logging would be required, as standard profiling tools are optimized for discrete kernel launches rather than continuous, event-driven GPU execution.
-
-Consider the evaluation of the current execution.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{data/np_prof.png}
-    \caption{Simple \texttt{nsys} timelines for the baseline implementations.}
-    \label{fig:nsys_comparison}
-\end{figure}
+Unfortunately, particularily in the case of running multiple GPU blocks, the memory copying errors were observed with a much higher frequency. 
+As the GPUs blocks were polling more often and able to consume tasks faster, they had faulty unitialized parameters.  
+The results from this test failed too often to support any claims. 
 
 
+\chapter{Conclusion and Future Work}
 
+This work presents a GPU persistent thread model, designed both as a foundation for future research in scheduling and as a way to improve the efficiency of executing multiple tasks on the GPU by reducing kernel launch overhead.
+The model supports application specific fine tuning, with particular focus on managing hardware resources.
+In this approach, the persistent kernel runs throughout the lifetime of the application, dynamically processing incoming tasks streamed to the GPU and avoiding repeated kernel launches.
 
-
-\section{Coroutine Implementation}
-
-While the primary objective of this work was the implementation of GPU persistent threads, it became evident that the same architectural foundations could be extended to support coroutine functionality with relatively modest additional effort. 
-The existing design already incorporates a task queue, which the GPU processes in sequence, and a dedicated memory address space for function contexts, making it possible to store and retrieve the continuation state of executing tasks. 
-These features naturally lend themselves to coroutine-style execution, where tasks can yield control and later resume from the same execution point.
-
-
-\subsection{Yielding and Changing Tasks}
-
-In essence, a coroutine yields its execution by voluntarily releasing its currently allocated compute resources, allowing other tasks to make progress. 
-Within the present implementation, this can be modeled directly using the existing task queue mechanism. 
-The task queue is implemented as a circular buffer, processing tasks in order from the head to the tail. 
-When a task yields, it is effectively repositioned within this queue, relinquishing its slot so that another, potentially higher-priority, task can execute in its place. 
-The most urgent pending task can then take over the vacated slot, ensuring minimal idle time for the GPU.
-
-A more advanced extension would involve replacing the simple circular buffer with a \emph{priority heap}. 
-In such a structure, tasks are automatically sorted and selected for execution based on their priority levels, allowing the scheduler to make more informed decisions about task ordering. 
-While the current system executes tasks to completion once they are selected, this model could still allow tasks to voluntarily halt and later resume execution, improving responsiveness for workloads with mixed task lengths.
-
-\subsection{Continuation and Resumption}
-
-Implementing coroutine behavior also requires explicit mechanisms for saving and restoring task state. 
-When a task yields, the GPU must store sufficient continuation data so that it can later resume execution from precisely the point where it was interrupted. 
-The current memory structure already provides a convenient, per-task memory region where such continuation data can be stored. 
-This includes both the computational state and the control information necessary for resuming execution at the correct instruction address within the device function.
-
-To enable this, each task must be preallocated with enough device memory during scheduling to hold both its input parameters and any continuation data that may be required. 
-This is achieved by copying the task's input stream into the designated memory region and advancing the memory offset to reserve additional space for storing the continuation state. 
-When a task yields, the current execution context—such as register values, loop counters, and program counters—is written into this reserved space. 
-Upon resumption, the scheduler retrieves this data and restores the task's execution context, allowing it to continue seamlessly from its previous stopping point. 
-
-By combining these mechanisms with the persistent thread framework, the GPU could effectively execute multiple long-lived, cooperative tasks, enabling finer-grained scheduling and more efficient utilization of GPU resources, especially in irregular or latency-sensitive workloads.
+The implementation meets the objectives established for developing a real time GPU scheduler.
+In particular, it demonstrates that persistent threads reduce scheduling overhead and improve latency. 
+Furthermore, Chapter~\ref{chapter:Persistent Threads}  outlines how priorities and coroutines could be integrated into this persistent thread model. 
+Overall, this work enhances understanding of real time GPU scheduling, CUDA architecture, and GPU execution and programming models, providing a foundation for future improvements and research in high performance real time GPU computing.
 
 
 \section{Limitations and Future Work}
 
-The current system does not support priority based scheduling decisions or utilizing coroutines for software preemption like execution.
-Future work implementing the strategies outline by this thesis towards utilizing the persistent kernel implemenation as a baseline for these tasks would enable further predictable real time scheduling capabilities. 
+The primary limitation observed is the non deterministic results discussed in Chapter~\ref{chapter:Evaluation}. 
+This behavior arises from the way tasks are enqueued.
+While the GPU should manage tasks to provide support for fine grained scheduling, it must also ensure data consistency.
+In this implementation, the GPU needs to decouple memory transfers and context infromation from the actual execution logic.
+Once the transfer and context information has been transfer, then the action can be executed. 
+
+This could be addressed in several ways of further synchronizing the GPU with the CPU.
+Currently the synchronization mechanism of GPU mailboxes only supports a single mailbox. 
+Instead the implementation could support a mailbox per task element or one per \acs{SM}, allowing GPU \acs{CTA} blocks to constantly synchronize on these tasks and not on the tail of the queue. 
+Furthermore, this approach allows the GPU to assign tasks to specific partitions of the GPU and reduce interferance. 
+Another approach is to introduce a separate execution buffer that only allows task execution after all necessary data has been copied and made stream-coherent.
+Lastly, the GPU could track the number of tasks waiting for execution using a synchronization method, which is only updated after tasks are coherant. 
+
+Additional limitations include the manually written wrappers used to serialize and deserialize parameters.
+These wrappers introduce extra overhead and complexity for the user, making the system slower and more labor intensive than an automatic solution would be.
+Addressing these limitations represents a clear path for future work, with the goal of supporting reliable, efficient, and user friendly persistent thread-based scheduling.
+
+\section{Future Work}
+The current system does not support priority based scheduling decisions or the use of coroutines for software preemption execution.
+Future work could build on the strategies outline in this thesis to utilize the persistent kernel implementation as a foundation for these features, enabling more predictable real time scheduling. 
 In this case, the memory management system might need to progress from an epoch based scheduler to a more complex management system. 
-Low priority tasks would interrupt the freeing of epoch memory. 
-Furthermore, the current manual streaming of input and output parameters restricts task variability and automation.  
+Additionally, the current manual streaming of input and output parameters limits task variability and automation.  
 Developing a generalized parameter serialization and deserialization layer that supports arbitrary kernel arguments would increase flexibility and reduce overhead in task preparation.
 
-Further improvements could also include:
+Two particularly promising directions for GPU persistent threads are GPU partitioning and automatic task generation through interception.
+By fully allocating GPU resources and using PTX code to define the behavior of individual \acs{SM}s, persistent threads can enforce manual GPU partitioning, reducing interference between tasks. 
+Additionally, implementing a CUDA API interception to automatically capture and schedule tasks would significantly enhance both the implementation of persistent threads in other projects and the ease of adapting these tasks to new workloads.
 
-\begin{itemize}
-    \item Implementing task batching, where each worker processes multiple tasks before polling again, to reduce synchronization overhead.
-    \item Optimizing the polling mechanism with adaptive backoff strategies to minimize resource consumption.
-    \item Leveraging asynchronous memory copies with double buffering and pinned memory to better overlap data transfers and computation.
-    \item Extending the evaluation to more complex kernels and real-world workloads beyond matrix multiplication to better characterize the benefits and limitations of persistent threads.
-\end{itemize}
 
-Overall, while the current implementation demonstrates the feasibility of persistent GPU threads, there remains substantial opportunity for optimization and scaling to fully leverage the advantages of this approach.
+\section{Conclusion}
+
+Overall, while the current implementation demonstrates the feasibility of persistent GPU threads, it remains a relatively simpler exploration of the concept.
+There is substantial opportunity for further optimization, refinement, and scaling to fully unlock the potential of this approach and include further real time scheduling strategies into the framework.
+Future work could build on this foundation to develop more sophisticated scheduling strategies, improve automation, and better support complex real-time workloads.
 
 
 %If too many tasks are scheduled or the memory buffer becomes fully saturated, task enqueueing fails and the launch function returns a \texttt{-1} error code.  
 %Therefore, proper usage requires either a fault-tolerant launching mechanism that can handle task rejections or a carefully designed launch strategy to avoid buffer overflow.
+
+
+
+
